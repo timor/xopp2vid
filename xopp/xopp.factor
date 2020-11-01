@@ -82,3 +82,21 @@ CONSTANT: path-attrs H{
 : stroke>svg ( stroke -- seq )
     [ stroke-svg-color ] [ stroke-segments ] bi
     [ segment>path ] with map ;
+
+: page>svg-attrs ( page -- width height viewbox )
+    [ "width" attr ]
+    [ "height" attr ] bi
+    [ [ "pt" append ] bi@ ]
+    [ "0 0 %s %s" sprintf ] 2bi ;
+
+:: <svg> ( width height viewbox -- xml )
+    <XML <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width=<-width->
+    height=<-height->
+    viewBox=<-viewbox->
+    ></svg> XML> ;
+
+: page>svg ( page -- xml )
+    [ page>svg-attrs <svg> ]
+    [ all-page-strokes [ stroke>svg ] map ] bi >>children ;
