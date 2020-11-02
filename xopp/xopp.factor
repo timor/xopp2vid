@@ -1,8 +1,9 @@
 USING: accessors arrays assocs cairo cairo-gadgets cairo.ffi colors.constants
-colors.hex destructors formatting grouping images images.loader
-images.memory.private kernel locals math math.functions math.parser
-math.rectangles namespaces sequences sequences.extras sequences.zipped splitting
-strings xml.data xml.traversal ;
+colors.hex combinators.short-circuit destructors formatting grouping images
+images.loader images.memory.private io.backend kernel locals math math.functions
+math.parser math.rectangles math.vectors memoize namespaces sequences
+sequences.extras sequences.zipped splitting strings vectors xml.data
+xml.traversal ;
 
 IN: xopp
 
@@ -19,23 +20,32 @@ SYMBOL: audio-path
 : string>numbers ( str -- seq )
     " " split [ string>number ] map ;
 
-: stroke-segments ( stroke -- seq )
-    [ "width" attr string>numbers ] [ children>string string>numbers 2 <groups> 2 <clumps> ] bi <zipped> ;
+: stroke-points ( stroke -- seq )
+    children>string string>numbers 2 <groups> ;
 
-:: draw-segment ( width start end -- )
+: stroke-segments ( stroke -- seq )
+    [ "width" attr string>numbers ] [ stroke-points 2 <clumps> ] bi <zipped> ;
+
+: segment-length ( segment -- n )
+    second first2 distance ;
+
+:: (draw-segment) ( width start end -- )
     cr width cairo_set_line_width 
     cr start first2 cairo_move_to
     cr end first2 cairo_line_to
     cr cairo_stroke ;
 
+: draw-segment ( segment -- ) first2 first2 (draw-segment) ; inline
+
 : draw-segments ( color segments -- )
-    [ cr swap set-source-color ] [ [ first2 draw-segment ] assoc-each ] bi* ;
+    [ cr swap set-source-color ] [ [ draw-segment ] each ] bi* ;
 
 : stroke>color/seg ( stroke -- color segments )
     [ "color" attr 1 tail hex>rgba ] [ stroke-segments ] bi ;
 
 : draw-stroke ( stroke -- )
-    stroke>color/seg draw-segments ;
+    [ color>> ] [ segments>> ] bi draw-segments ;
+    ! stroke>color/seg draw-segments ;
     ! [ cr swap "color" attr 1 tail hex>rgba set-source-color ]
     ! [ stroke-segments [ first2 draw-segment ] assoc-each ] bi ;
 
@@ -43,8 +53,11 @@ SYMBOL: audio-path
 
 : draw-page ( page -- ) "layer" tags-named [ draw-layer ] each ;
 
+: even-integer ( number -- int )
+    ceiling >integer dup even? [ 1 + ] unless ;
+
 : page-dim ( page -- dim )
-    [ "width" attr string>number ceiling >integer ] [ "height" attr string>number ceiling >integer 2array ] bi ;
+    [ "width" attr string>number even-integer ] [ "height" attr string>number even-integer 2array ] bi ;
 
 : make-page-image ( page quot: ( -- ) -- image )
     [ page-dim ] dip
@@ -58,6 +71,10 @@ SYMBOL: audio-path
 
 TUPLE: clip audio strokes ;
 : <clip> ( audio -- obj ) clip new swap >>audio V{ } clone >>strokes ;
+TUPLE: stroke color segments ;
+: <stroke> ( xml -- obj )
+    stroke>color/seg stroke boa ;
+
 SYMBOL: current-clips
 SYMBOL: last-clip
 SINGLETON: +no-clip+
@@ -81,14 +98,29 @@ M: longlongattr attr>number 2 head-slice* string>number ;
 : page-clips ( page -- seq )
     [
         all-page-strokes
-        [ [ change-clip ] [ current-clips get last strokes>> push ] bi ] each
+        [ [ change-clip ] [ <stroke> current-clips get last strokes>> push ] bi ] each
         current-clips get
     ] with-current-clips ;
 
 SYMBOL: path-suffix
+! pts/second
+SYMBOL: stroke-speed
+stroke-speed [ 20 ] initialize
+! fps/second
+SYMBOL: fps
+fps [ 30 ] initialize
+
+MEMO: (frame-time) ( fps -- seconds ) recip ;
+: frame-time ( -- seconds ) fps get (frame-time) ;
+
+: segment-time ( segment -- seconds )
+    segment-length stroke-speed get /f ;
+
+SYMBOL: segment-timer
 :: write-stroke-frames ( path-prefix page stroke -- )
     path-prefix normalize-path :> path-prefix
     [
+        0 segment-timer set
         0 path-suffix set
         page page-dim :> dim
         dim malloc-bitmap-data :> bitmap-data
@@ -96,12 +128,18 @@ SYMBOL: path-suffix
         surface <cairo> &cairo_destroy dup check-cairo current-cairo set
         cr COLOR: white set-source-color
         cr { 0 0 } dim <rect> fill-rect
-        stroke stroke>color/seg :> ( color segments )
+        stroke [ color>> ] [ segments>> ] bi :> ( color segments )
         cr color set-source-color
-        segments [
-            first2 draw-segment
-            surface path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo)
-        ] assoc-each
+        segments reverse clone >vector :> segments
+        [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
+        [
+            segment-timer get 0 >=
+            [ segments pop [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi ] when
+            segment-timer get 0 <=
+            [ surface dup cairo_surface_flush path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo)
+              segment-timer [ frame-time + ] change
+            ] when
+        ] while
     ] with-destructors ;
 
 : stroke-frames ( page stroke -- seq )
