@@ -105,7 +105,7 @@ M: longlongattr attr>number 2 head-slice* string>number ;
 SYMBOL: path-suffix
 ! pts/second
 SYMBOL: stroke-speed
-stroke-speed [ 20 ] initialize
+stroke-speed [ 120 ] initialize
 ! fps/second
 SYMBOL: fps
 fps [ 30 ] initialize
@@ -117,15 +117,22 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
     segment-length stroke-speed get /f ;
 
 SYMBOL: segment-timer
-:: write-stroke-frames ( path-prefix page stroke -- )
-    path-prefix normalize-path :> path-prefix
+
+:: with-image-surface ( dim quot -- )
     [
+    dim malloc-bitmap-data :> bitmap-data
+    bitmap-data dim <image-surface> &cairo_surface_destroy :> surface
+    surface <cairo> &cairo_destroy dup check-cairo current-cairo set
+    surface quot curry call
+    ] with-destructors ; inline
+
+
+:: write-stroke-frames ( path-prefix dim stroke -- )
+    path-prefix normalize-path :> path-prefix
+    dim
+    [| surface |
         0 segment-timer set
         0 path-suffix set
-        page page-dim :> dim
-        dim malloc-bitmap-data :> bitmap-data
-        bitmap-data dim <image-surface> &cairo_surface_destroy :> surface
-        surface <cairo> &cairo_destroy dup check-cairo current-cairo set
         cr COLOR: white set-source-color
         cr { 0 0 } dim <rect> fill-rect
         stroke [ color>> ] [ segments>> ] bi :> ( color segments )
@@ -140,7 +147,7 @@ SYMBOL: segment-timer
               segment-timer [ frame-time + ] change
             ] when
         ] while
-    ] with-destructors ;
+    ] with-image-surface ;
 
 : stroke-frames ( page stroke -- seq )
     stroke>color/seg [ [ draw-segments ] 2curry make-page-image ] 2with collector [ each-subseq ] dip ;
