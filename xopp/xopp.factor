@@ -87,6 +87,7 @@ M: longlongattr attr>number 2 head-slice* string>number ;
 
 SYMBOL: path-suffix
 :: write-stroke-frames ( path-prefix page stroke -- )
+    path-prefix normalize-path :> path-prefix
     [
         0 path-suffix set
         page page-dim :> dim
@@ -99,9 +100,7 @@ SYMBOL: path-suffix
         cr color set-source-color
         segments [
             first2 draw-segment
-            surface [ cairo_surface_flush ] [ check-surface ] bi
-            bitmap-data dim <bitmap-image> BGRA >>component-order ubyte-components >>component-type :> image
-            image path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf save-graphic-image
+            surface path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo)
         ] assoc-each
     ] with-destructors ;
 
