@@ -1,8 +1,8 @@
 USING: accessors arrays assocs cairo cairo-gadgets cairo.ffi colors.constants
 colors.hex combinators.short-circuit destructors formatting grouping images
-images.loader images.memory.private io.backend kernel locals math math.functions
-math.parser math.rectangles math.vectors memoize namespaces sequences
-sequences.extras sequences.zipped splitting strings vectors xml.data
+images.loader images.memory.private io.backend io.directories kernel locals math
+math.functions math.parser math.rectangles math.vectors memoize namespaces
+sequences sequences.extras sequences.zipped splitting strings vectors xml.data
 xml.traversal ;
 
 IN: xopp
@@ -105,7 +105,7 @@ M: longlongattr attr>number 2 head-slice* string>number ;
 SYMBOL: path-suffix
 ! pts/second
 SYMBOL: stroke-speed
-stroke-speed [ 120 ] initialize
+stroke-speed [ 180 ] initialize
 ! fps/second
 SYMBOL: fps
 fps [ 30 ] initialize
@@ -126,31 +126,58 @@ SYMBOL: segment-timer
     surface quot curry call
     ] with-destructors ; inline
 
+:: write-frame ( path-prefix surface -- )
+    surface dup cairo_surface_flush path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo) ;
+
+:: (write-stroke-frames) ( path-prefix stroke surface dim -- )
+    cr COLOR: white set-source-color
+    cr { 0 0 } dim <rect> fill-rect
+    stroke [ color>> ] [ segments>> ] bi :> ( color segments )
+    cr color set-source-color
+    segments reverse clone >vector :> segments
+    [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
+    [
+        segment-timer get 0 >=
+        [ segments pop [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi ] when
+        segment-timer get 0 <=
+        [ path-prefix surface write-frame
+          segment-timer [ frame-time + ] change
+        ] when
+    ] while ;
 
 :: write-stroke-frames ( path-prefix dim stroke -- )
     path-prefix normalize-path :> path-prefix
     dim
     [| surface |
-        0 segment-timer set
-        0 path-suffix set
-        cr COLOR: white set-source-color
-        cr { 0 0 } dim <rect> fill-rect
-        stroke [ color>> ] [ segments>> ] bi :> ( color segments )
-        cr color set-source-color
-        segments reverse clone >vector :> segments
-        [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
-        [
-            segment-timer get 0 >=
-            [ segments pop [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi ] when
-            segment-timer get 0 <=
-            [ surface dup cairo_surface_flush path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo)
-              segment-timer [ frame-time + ] change
-            ] when
-        ] while
+        ! 0 segment-timer set
+        ! 0 path-suffix set
+        path-prefix stroke surface dim (write-stroke-frames)
     ] with-image-surface ;
 
-: stroke-frames ( page stroke -- seq )
-    stroke>color/seg [ [ draw-segments ] 2curry make-page-image ] 2with collector [ each-subseq ] dip ;
+: move-speed ( -- pt/sec ) stroke-speed get 2 * ;
 
-: clip-frames ( page clip -- seq )
-    strokes>> [ stroke-frames ] with map ;
+: inter-stroke-time ( stroke1 stroke2 -- seconds )
+    [ segments>> last ] [ segments>> first ] bi* [ second ] bi@
+    distance move-speed get /f ;
+
+SYMBOL: last-stroke
+:: write-stroke-pause ( path-prefix surface stroke -- )
+    last-stroke get
+    [
+        stroke inter-stroke-time fps /f ceiling round >integer
+        [ path-prefix surface write-frame ] times
+    ] when* ;
+
+:: write-clip-frames ( path-prefix dim clip -- )
+    path-prefix normalize-path :> path-prefix
+    dim [| surface |
+     0 segment-timer set
+     0 path-suffix set
+     clip strokes>>
+     [| stroke i |
+      path-prefix surface stroke write-stroke-pause
+      path-prefix i "%s-%d" sprintf :> dir
+      dir make-directories
+      dir "/frame" append stroke surface dim (write-stroke-frames)
+     ] each-index
+    ] with-image-surface ;
