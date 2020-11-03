@@ -136,8 +136,7 @@ SYMBOL: segment-timer
     [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
     [
         segment-timer get 0 >=
-        [ segments last [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi
-          segments pop drop
+        [ segments pop [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi
         ] when
         segment-timer get 0 <=
         [ path-prefix surface write-frame
@@ -182,7 +181,7 @@ SYMBOL: last-stroke
      path-prefix surface stroke write-stroke-pause
      path-prefix :> dir
      dir make-directories
-     dir "/frame" append stroke surface (write-stroke-frames)
+     dir "/frame" append dup :> frame-prefix stroke surface (write-stroke-frames)
     ] each ;
 
 ! TBR
@@ -229,10 +228,14 @@ SYMBOL: last-stroke
     dim [| surface |
          dim draw-white-bg
          clips [| clip i |
+                outpath i "%s/clip%03d-frames" sprintf :> frames-dir
                 outpath i "%s/clip%03d-video" sprintf :> clip-video-path
-                outpath i "%s/clip%03d" sprintf :> clip-final
+                outpath i "%s/clip%03d-combined" sprintf :> clip-final
                 outpath i "%s/clip%03d-audio.ogg" sprintf :> clip-audio-path
-                clip-video-path clip surface (clip>mp4)
+                frames-dir make-directories
+                frames-dir clip surface (write-clip-frames)
+                frames-dir clip-video-path clip-frames>mp4
+                ! clip-video-path clip surface (clip>mp4)
                 clip clip-audio [
                     clip-audio-path copy-file
                     clip-video-path clip-audio-path clip-final add-audio
