@@ -1,15 +1,17 @@
 USING: accessors arrays assocs cairo cairo-gadgets cairo.ffi colors.constants
 colors.hex combinators.short-circuit destructors formatting grouping images
-images.loader images.memory.private io.backend io.directories kernel locals math
-math.functions math.parser math.rectangles math.vectors memoize namespaces
-sequences sequences.extras sequences.zipped splitting strings vectors xml.data
-xml.traversal ;
+images.loader images.memory.private io.backend io.directories io.files.temp
+io.launcher kernel locals math math.functions math.parser math.rectangles
+math.vectors memoize namespaces sequences sequences.extras sequences.zipped
+splitting strings vectors xml.data xml.traversal ;
 
 IN: xopp
 
 ! * Xournal++ file loader
 
 SYMBOL: audio-path
+TUPLE: clip audio strokes ;
+: <clip> ( audio -- obj ) clip new swap >>audio V{ } clone >>strokes ;
 
 : pages ( xml -- seq )
     "page" tags-named ;
@@ -26,6 +28,13 @@ SYMBOL: audio-path
 : stroke-segments ( stroke -- seq )
     [ "width" attr string>numbers ] [ stroke-points 2 <clumps> ] bi <zipped> ;
 
+: stroke>color/seg ( stroke -- color segments )
+    [ "color" attr 1 tail hex>rgba ] [ stroke-segments ] bi ;
+
+TUPLE: stroke color segments ;
+: <stroke> ( xml -- obj )
+    stroke>color/seg stroke boa ;
+
 : segment-length ( segment -- n )
     second first2 distance ;
 
@@ -39,9 +48,6 @@ SYMBOL: audio-path
 
 : draw-segments ( color segments -- )
     [ cr swap set-source-color ] [ [ draw-segment ] each ] bi* ;
-
-: stroke>color/seg ( stroke -- color segments )
-    [ "color" attr 1 tail hex>rgba ] [ stroke-segments ] bi ;
 
 : draw-stroke ( stroke -- )
     [ color>> ] [ segments>> ] bi draw-segments ;
@@ -68,12 +74,6 @@ SYMBOL: audio-path
     ! [ swap current-cairo set draw-page ] curry make-bitmap-image ;
     dup [ draw-page ] curry make-page-image ;
 
-
-TUPLE: clip audio strokes ;
-: <clip> ( audio -- obj ) clip new swap >>audio V{ } clone >>strokes ;
-TUPLE: stroke color segments ;
-: <stroke> ( xml -- obj )
-    stroke>color/seg stroke boa ;
 
 SYMBOL: current-clips
 SYMBOL: last-clip
@@ -105,7 +105,7 @@ M: longlongattr attr>number 2 head-slice* string>number ;
 SYMBOL: path-suffix
 ! pts/second
 SYMBOL: stroke-speed
-stroke-speed [ 180 ] initialize
+stroke-speed [ 90 ] initialize
 ! fps/second
 SYMBOL: fps
 fps [ 30 ] initialize
@@ -129,32 +129,38 @@ SYMBOL: segment-timer
 :: write-frame ( path-prefix surface -- )
     surface dup cairo_surface_flush path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo) ;
 
-:: (write-stroke-frames) ( path-prefix stroke surface dim -- )
-    cr COLOR: white set-source-color
-    cr { 0 0 } dim <rect> fill-rect
+:: (write-stroke-frames) ( path-prefix stroke surface -- )
     stroke [ color>> ] [ segments>> ] bi :> ( color segments )
     cr color set-source-color
     segments reverse clone >vector :> segments
     [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
     [
         segment-timer get 0 >=
-        [ segments pop [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi ] when
+        [ segments last [ draw-segment ] [ segment-time segment-timer [ swap - ] change ] bi
+          segments pop drop
+        ] when
         segment-timer get 0 <=
         [ path-prefix surface write-frame
           segment-timer [ frame-time + ] change
         ] when
     ] while ;
 
+:: draw-white-bg ( dim -- )
+    cr COLOR: white set-source-color
+    cr { 0 0 } dim <rect> fill-rect ;
+
+! Create frames for one stroke only.
 :: write-stroke-frames ( path-prefix dim stroke -- )
     path-prefix normalize-path :> path-prefix
     dim
     [| surface |
-        ! 0 segment-timer set
-        ! 0 path-suffix set
-        path-prefix stroke surface dim (write-stroke-frames)
+     dim draw-white-bg
+     0 segment-timer set
+     0 path-suffix set
+     path-prefix stroke surface (write-stroke-frames)
     ] with-image-surface ;
 
-: move-speed ( -- pt/sec ) stroke-speed get 2 * ;
+: move-speed ( -- pt/sec ) stroke-speed get 0.5 * ;
 
 : inter-stroke-time ( stroke1 stroke2 -- seconds )
     [ segments>> last ] [ segments>> first ] bi* [ second ] bi@
@@ -168,16 +174,92 @@ SYMBOL: last-stroke
         [ path-prefix surface write-frame ] times
     ] when* ;
 
+:: (write-clip-frames) ( path-prefix clip surface -- )
+    0 segment-timer set
+    0 path-suffix set
+    clip strokes>>
+    [| stroke |
+     path-prefix surface stroke write-stroke-pause
+     path-prefix :> dir
+     dir make-directories
+     dir "/frame" append stroke surface (write-stroke-frames)
+    ] each ;
+
+! TBR
 :: write-clip-frames ( path-prefix dim clip -- )
     path-prefix normalize-path :> path-prefix
     dim [| surface |
-     0 segment-timer set
-     0 path-suffix set
-     clip strokes>>
-     [| stroke i |
-      path-prefix surface stroke write-stroke-pause
-      path-prefix i "%s-%d" sprintf :> dir
-      dir make-directories
-      dir "/frame" append stroke surface dim (write-stroke-frames)
-     ] each-index
+     dim draw-white-bg
+     path-prefix clip surface (write-clip-frames)
     ] with-image-surface ;
+
+! Relies ffmpeg
+: render-frame-video ( fps in-pattern out-file -- )
+    "ffmpeg -y -r %d -f image2 -i %s -vcodec libx264 -crf 25 -pix_fmt yuv420p %s.mp4"
+    sprintf try-process ;
+
+: clip-frames>mp4 ( frames-path outfile -- )
+    [ fps get ] 2dip [ "/frame-%05d.png" append ] dip render-frame-video ;
+
+:: (clip>mp4) ( outfile clip surface -- )
+    "clip" temp-file :> dir
+    dir make-directories
+    dir qualified-directory-files [ delete-file ] each
+    dir clip surface (write-clip-frames)
+    dir outfile clip-frames>mp4 ;
+
+! TBR
+:: clip>mp4 ( outfile dim clip -- )
+    "clip" temp-file :> dir
+    dir make-directories
+    dir qualified-directory-files [ delete-file ] each
+    dim [| surface | outfile clip surface (clip>mp4) ] with-image-surface ;
+    ! fps get dir "/frame-%05d.png" append outfile render-frame-video ;
+
+: clip-audio ( clip -- path/f )
+    audio>>
+    [ f ] [ audio-path get prepend-path ] if-empty ;
+
+: add-audio ( videofile audiofile outpath -- )
+    "ffmpeg -y -i %s.mp4 -i %s -c:v copy -c:a aac %s.mp4" sprintf try-process ;
+
+:: write-page-clips ( outpath page -- )
+    outpath make-directories
+    page [ page-dim ] [ page-clips ] bi :> ( dim clips )
+    dim [| surface |
+         dim draw-white-bg
+         clips [| clip i |
+                outpath i "%s/clip%03d-video" sprintf :> clip-video-path
+                outpath i "%s/clip%03d" sprintf :> clip-final
+                outpath i "%s/clip%03d-audio.ogg" sprintf :> clip-audio-path
+                clip-video-path clip surface (clip>mp4)
+                clip clip-audio [
+                    clip-audio-path copy-file
+                    clip-video-path clip-audio-path clip-final add-audio
+                 ] when*
+               ] each-index
+    ] with-image-surface ;
+
+: rm-r ( path -- )
+     dup file-info directory?
+    [ [ qualified-directory-files [ rm-r ] each ] [ delete-directory ] bi ]
+    [ delete-file ] if ;
+
+ERROR: not-an-empty-directory path ;
+: ensure-empty-path ( path -- path )
+    normalize-path dup dup exists?
+    [ dup { [ file-info directory? ] [ directory-files empty? ] } 1&&
+      [ drop ]
+      [
+          dup \ not-an-empty-directory boa { { "Overwrite Contents" t } } throw-restarts
+          [ [ rm-r ] [ make-directories ] bi ] [ drop ] if
+      ] if
+    ] [ make-directories ] if ;
+
+: make-project ( xml path -- )
+    [ pages ] [ ensure-empty-path ] bi*
+    swap [| page path i |
+          path i "page%d" sprintf append-path :> page-dir
+          page-dir make-directories
+          page-dir page write-page-clips
+    ] with each-index ;
