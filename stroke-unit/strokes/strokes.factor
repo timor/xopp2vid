@@ -1,8 +1,9 @@
 ! Copyright (C) 2020 martinb.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors cairo-gadgets cairo.ffi grouping kernel locals math
-math.functions math.parser math.rectangles memoize.scoped sequences
-sequences.mapped sequences.zipped splitting ui.gadgets xml.data xml.traversal ;
+USING: accessors arrays cairo-gadgets cairo.ffi cairo.surface-gadget grouping
+kernel locals math math.functions math.parser math.rectangles memoize.scoped
+sequences sequences.mapped sequences.zipped splitting ui.gadgets xml.data
+xml.traversal ;
 IN: stroke-unit.strokes
 
 : string>numbers ( str -- seq )
@@ -36,14 +37,17 @@ IN: stroke-unit.strokes
 
 : stroke-element? ( xml -- ? ) "stroke" assure-name swap tag-named? ; inline
 
-! Presenting a single stroke at the origin
-TUPLE: stroke-gadget < cairo-image-gadget stroke ;
+! Presenting a single stroke at it's actual position, parent object responsible for supplying enough drawing space
+! TUPLE: stroke-gadget < cairo-image-gadget stroke ;
+TUPLE: stroke-gadget < gadget stroke ;
+INSTANCE: stroke-gadget cairo-render-gadget
 : <stroke-gadget> ( stroke -- obj ) stroke-gadget new swap >>stroke ;
 
-M: stroke-gadget pref-dim* stroke>> 1array strokes-dim ;
+M: stroke-gadget pref-rect* stroke>> 1array strokes-rect ;
 
 M: stroke-gadget render-cairo*
-    [ stroke>> [
-        stroke-rect loc>>
-        cr swap first2 [ neg ] bi@ cairo_translate
-    ] [ draw-stroke ] bi ] with-saved-cairo-matrix ;
+    stroke>> draw-stroke ;
+    ! [ stroke>> [
+    !     stroke-rect loc>>
+    !     cr swap first2 [ neg ] bi@ cairo_translate
+    ! ] [ draw-stroke ] bi ] with-saved-cairo-matrix ;
