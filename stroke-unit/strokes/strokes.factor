@@ -1,6 +1,6 @@
 ! Copyright (C) 2020 martinb.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors arrays cairo cairo-gadgets cairo.ffi cairo.surface-gadget
+USING: accessors arrays cairo cairo-gadgets cairo.ffi cairo.surface-renderer
 colors.hex grouping kernel locals math math.functions math.parser
 math.rectangles memoize.scoped sequences sequences.mapped sequences.zipped
 splitting xml.data xml.traversal ;

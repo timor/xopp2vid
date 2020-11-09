@@ -1,9 +1,11 @@
-USING: accessors kernel namespaces sequences stroke-unit.elements
-stroke-unit.strokes xml.syntax ;
+USING: accessors audio.gadget cairo-gadgets cairo.ffi images.sequence-viewer
+io.pathnames kernel math namespaces sequences stroke-unit.clip-renderer
+stroke-unit.elements stroke-unit.strokes stroke-unit.util ui.gadgets
+ui.gadgets.packs ui.gadgets.tracks xml.syntax ;
 
 IN: stroke-unit.clips
 
-TUPLE: clip audio elements ;
+TUPLE: clip ogg-file audio elements ;
 : <clip> ( audio -- obj ) clip new swap >>audio V{ } clone >>elements ;
 
 SYMBOL: current-clips
@@ -44,21 +46,58 @@ TAG: image change-clip drop ;
       current-clips get
     ] with-current-clips ;
 
-TUPLE: clip-strokes-gadget < cairo-image-gadget strokes ;
-: <clip-strokes-gadget> ( clip -- obj )
-    clip-strokes-gadget new
-    swap elements>> [ stroke-element? ] filter >>strokes ;
 
-M: clip-strokes-gadget pref-dim*
-    strokes>> strokes-dim ;
+! * Clip view gadget
+! Strokes viewer, slider for progress, play button
+TUPLE: clip-viewer < pack elements ;
+: load-audio ( clip -- audio/f )
+    audio>> dup empty? [ drop f ]
+    [ get-current-audio-folder prepend-path ogg>audio ] if ;
 
-M: clip-strokes-gadget render-cairo* strokes>>
-    [ [ strokes-rect loc>>
-        cr swap first2 [ neg ] bi@ cairo_translate ]
-    [ [ draw-stroke ] each ] bi ] with-saved-cairo-matrix ;
+: clip-audio-gadget ( clip -- gadget/f )
+    load-audio dup [ <audio-gadget> ] when ;
 
-: <clip-gadget> ( clip -- )
-    [ <clip-strokes-gadget> ] [  ]
+: clip-player-gadget ( clip -- gadget )
+    clip-strokes fps get <image-player> ;
+
+! :: <clip-viewer> ( clip -- gadget )
+!     clip-player-gadget :> player
+    ! clip-audio-gadget :> audio
+
+
+
+! : add-frame-slider ( gadget clip )
+
+! : <clip-viewer> ( clip -- gadget )
+!     <pile> swap
+!     [ elements>> <cairo-renderer> [ >>elements ] [ add-gadget ] bi* ]
+!     [ <shelf> swap [ maybe-add-audio-gadget ] [  ] ]
+
+! TUPLE: strokes-container ;
+
+! M: strokes-container pref-rect*
+!     children>> [ pref-dim ] [ rect-union ] map-reduce ;
+
+! TUPLE: clip-strokes-gadget < cairo-image-gadget strokes ;
+! : <clip-strokes-gadget> ( clip -- obj )
+!     clip-strokes-gadget new
+!     swap elements>> [ stroke-element? ] filter >>strokes ;
+
+! M: clip-strokes-gadget pref-dim*
+!     strokes>> strokes-dim ;
+
+! M: clip-strokes-gadget render-cairo* strokes>>
+!     [ [ strokes-rect loc>>
+!         cr swap first2 [ neg ] bi@ cairo_translate ]
+!     [ [ draw-stroke ] each ] bi ] with-saved-cairo-matrix ;
+
+! : <clip-gadget> ( clip -- gadget )
+!     <shelf> swap
+!     [ <clip-strokes-gadget> add-gadget ] [ load-audio [ <audio-gadget> add-gadget ] when* ] bi ;
+
+
+! : <clip-list> ( clips -- gadget )
+!     vertical <track> swap [ <clip-gadget> f track-add ] each ;
 
 
 ! : ensure-clip ( -- )

@@ -1,4 +1,4 @@
-USING: accessors cairo.surface-gadget kernel models sequences xml.traversal ;
+USING: accessors cairo.surface-renderer kernel models sequences xml.traversal ;
 
 IN: stroke-unit.page
 

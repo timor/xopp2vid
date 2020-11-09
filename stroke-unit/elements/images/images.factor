@@ -1,4 +1,4 @@
-USING: accessors arrays base64 cairo-gadgets cairo.ffi cairo.surface-gadget
+USING: accessors arrays base64 cairo-gadgets cairo.ffi cairo.surface-renderer
 combinators images images.loader images.normalization images.png kernel locals
 math math.parser math.rectangles stroke-unit.util xml.data xml.traversal ;
 
