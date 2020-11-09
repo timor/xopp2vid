@@ -1,9 +1,18 @@
-USING: accessors cairo cairo-gadgets cairo.ffi classes.struct images.viewer audio.engine audio.vorbis
-kernel locals namespaces sequences ui.render urls xml xml.data xml.traversal ;
+USING: accessors audio audio.engine audio.vorbis byte-arrays byte-vectors cairo
+cairo-gadgets cairo.ffi calendar classes.struct combinators destructors fry
+images.memory.private io.backend kernel locals math math.functions namespaces
+sequences strings xml xml.data xml.traversal ;
 
 IN: stroke-unit.util
 
+: ceiling-dim ( dim -- dim )
+    [ ceiling >integer ] map ; inline
+
 SYMBOL: current-audio-folder
+
+! frames/second
+SYMBOL: fps
+fps [ 25 ] initialize
 
 : get-current-audio-folder ( -- path )
     current-audio-folder
@@ -13,14 +22,28 @@ SYMBOL: current-audio-folder
       ] unless* ] change
     current-audio-folder get ;
 
-TUPLE: cairo-image-gadget < image-gadget ;
+: with-factor-image-surface ( image quot: ( surface -- ) -- )
+    '[
+        _ [ bitmap>> ] [ dim>> ] bi <image-surface> &cairo_surface_destroy
+        @
+    ] with-destructors ; inline
 
-M:: cairo-image-gadget draw-gadget* ( gadget -- )
-    gadget dup dim>> [
-        current-cairo set
-        gadget render-cairo*
-    ] make-bitmap-image >>image
-    call-next-method ;
+:: with-image-surface ( dim quot -- )
+    [
+        dim malloc-bitmap-data :> bitmap-data
+        bitmap-data dim <image-surface> &cairo_surface_destroy :> surface
+        surface <cairo> &cairo_destroy dup check-cairo current-cairo set
+        surface quot curry call
+    ] with-destructors ; inline
+
+! TUPLE: cairo-image-gadget < image-gadget ;
+
+! M:: cairo-image-gadget draw-gadget* ( gadget -- )
+!     gadget dup dim>> [
+!         current-cairo set
+!         gadget render-cairo*
+!     ] make-bitmap-image >>image
+!     call-next-method ;
 
 :: with-saved-cairo-matrix ( quot -- )
     cairo_matrix_t <struct> :> matrix
@@ -52,3 +75,10 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     32768 read-vorbis-stream
     [ generator-audio-format 0 f <audio> ]
     [ ogg>pcm [ length >>size ] [ >>data ] bi ] bi ;
+
+: audio-duration ( audio -- duration )
+    { [ size>> ]
+      [ channels>> ]
+      [ sample-bits>> * ]
+      [ sample-rate>> * ]
+     } cleave / seconds ;
