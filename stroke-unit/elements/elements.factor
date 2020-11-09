@@ -1,6 +1,6 @@
 ! Copyright (C) 2020 martinb.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: stroke-unit xml.traversal xopp.file ;
+USING: xml.traversal ;
 IN: stroke-unit.elements
 
 ! TBR ( elements )
