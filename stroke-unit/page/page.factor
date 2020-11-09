@@ -1,13 +1,20 @@
-USING: cairo.surface-gadget kernel sequences stroke-unit.strokes ui.gadgets
-xml.traversal ;
+USING: accessors cairo.surface-gadget kernel models sequences xml.traversal ;
 
 IN: stroke-unit.page
 
 ! * Provide Container and Cairo context for stroke drawing
 
-: <page-gadget> ( page -- gadget )
-    <cairo-surface-gadget> swap
-    "stroke" deep-tags-named [ <stroke-gadget> add-gadget ] each ;
+! : <page-gadget> ( page -- gadget )
+!     <cairo-surface-gadget> swap
+!     "stroke" deep-tags-named [ <stroke-gadget> add-gadget ] each ;
+SLOT: elements
+TUPLE: page-renderer model gadget ;
+
+: <page-renderer> ( page -- obj )
+    "layer" tags-named [ children-tags ] map concat
+    <cairo-renderer> page-renderer boa ;
+
+M: page-renderer elements<< model>> set-model ;
 
 ! ! Contains the cairo context at the time child gadget's draw-cairo* methods are called
 ! SYMBOL: stroke-page-cairo
