@@ -28,7 +28,7 @@ TUPLE: animation < tuple model last timer delay state on-change ;
         [ animation timer>> stop-timer
           animation finished set-state
         ]
-        [ value animation last<<
+        [ value clone animation last<<
           model animation set-model-value
         ] if
     ] f delay <timer> ;
@@ -59,10 +59,18 @@ M: finished on-button-press drop
 : playback-button ( animation -- gadget )
     [ button-label ] keep '[ drop _ dup state>> value>> on-button-press ] <button> ;
 
+: step-slider-line ( range -- step ) range-step value>> ;
+
 PRIVATE>
 
+! HACK: activating and deactivating the range max sub-model because it is needed during layout*
+: precalc-range-max ( model -- )
+    range-max [ activate-model ] [ deactivate-model ] bi ;
+
 : <animation-controls> ( animation -- gadget )
-    <shelf> swap [ playback-button add-gadget ] [ model>> horizontal <slider> add-gadget ] bi ;
+    <shelf> swap [ playback-button add-gadget ]
+    [ model>> dup precalc-range-max
+      [ horizontal <slider> ] [ step-slider-line >>line ] bi add-gadget ] bi ;
 
 TUPLE: range-animation < animation step ;
 M: range-animation set-model-value
@@ -73,3 +81,6 @@ M: range-animation rewind-model-value
 
 : <range-animation> ( range delay step -- obj )
     [ range-animation new-animation ] dip >>step ;
+
+: rewind-animation ( animation -- )
+    [ model>> ] keep rewind-model-value ;

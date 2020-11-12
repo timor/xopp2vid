@@ -1,7 +1,8 @@
-USING: accessors audio.gadget cairo-gadgets cairo.ffi images.sequence-viewer
-io.pathnames kernel math namespaces sequences stroke-unit.clip-renderer
-stroke-unit.elements stroke-unit.strokes stroke-unit.util ui.gadgets
-ui.gadgets.packs ui.gadgets.tracks xml.syntax ;
+USING: accessors audio.player-gadget controls.animation images.sequence-viewer
+io.pathnames kernel locals models models.arrow models.arrow.smart namespaces
+sequences stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
+stroke-unit.util ui.gadgets ui.gadgets.buttons ui.gadgets.labels
+ui.gadgets.packs xml.syntax ;
 
 IN: stroke-unit.clips
 
@@ -49,16 +50,66 @@ TAG: image change-clip drop ;
 
 ! * Clip view gadget
 ! Strokes viewer, slider for progress, play button
-TUPLE: clip-viewer < pack elements ;
+TUPLE: clip-viewer < pack elements audio iplayer aplayer ;
 : load-audio ( clip -- audio/f )
     audio>> dup empty? [ drop f ]
     [ get-current-audio-folder prepend-path ogg>audio ] if ;
 
-: clip-audio-gadget ( clip -- gadget/f )
-    load-audio dup [ <audio-gadget> ] when ;
+: clip-audio-player ( clip -- gadget/f )
+    load-audio dup [ <audio-player> ] when ;
 
-: clip-player-gadget ( clip -- gadget )
-    clip-strokes fps get <image-player> ;
+
+: clip-image-player ( clip -- gadget )
+    <model> [ render-clip-frames ] <arrow> fps get <image-player> ;
+
+: clip-button-label ( running -- gadget )
+    [ "⏸" "⯈" ? ] <arrow> <label-control> ;
+
+: clip-start-playback ( clip -- )
+    [ iplayer>> ] [ aplayer>> ] bi
+    [ [ animation>> start-animation ] when* ] bi@ ;
+
+: clip-pause-playback ( clip -- )
+    [ iplayer>> ] [ aplayer>> ] bi
+    [ [ animation>> stop-animation ] when* ] bi@ ;
+
+: rewind-clip ( clip -- )
+    [ iplayer>> ] [ aplayer>> ] bi
+    [ [ animation>> rewind-animation ] when* ] bi@ ;
+
+:: clip-controls ( clip-player iplayer aplayer -- button )
+    iplayer animation>> [ state>> ] [ model>> ] bi :> ( istate irange )
+    aplayer [ animation>> [ state>> ] [ model>> ] bi ] [ istate irange ] if* :> ( astate arange )
+    istate astate [ [ running? ] bi@ or ] <smart-arrow> :> running
+    istate astate [ [ finished? ] bi@ and ] <smart-arrow> :> finished
+    running clip-button-label
+    [ drop finished value>>
+      [ [ clip-player rewind-clip ] [ [ clip-player clip-start-playback ] 0.1 seconds later drop ] bi ]
+      [ running value>>
+        [ clip-player clip-pause-playback ]
+        [ clip-player clip-start-playback ] if
+      ] if
+      ! [ animation>> ] bi@ finished value>>
+      ! [ 2dup [ rewind-animation ] bi@ ] when
+      ! running value>> not [ [ start-animation ] bi@ ] [ [ stop-animation ] bi@ ] if
+    ] <button> ;
+
+
+:: <clip-viewer> ( clip -- gadget )
+    clip-viewer new vertical >>orientation dup :> gadget
+    clip clip-image-player dup :> iplayer [ >>iplayer ] [ add-gadget ] bi
+    clip clip-audio-player dup :> aplayer [ >>aplayer ] [ add-gadget ] bi
+    dup iplayer aplayer clip-controls add-gadget ;
+
+
+! : clip-player-controls ( clip -- button slider image-control )
+!     clip-strokes <model> [ render-clip-frames ] <arrow> fps get <image-sequence-controls> ;
+
+! :: <clip-viewer> ( clip -- gadget )
+!     clip-viewer new vertical >>orientation :> clipv
+!     clip [ clip-player-controls ] [ clip-audio-player ] bi :> ( button slider imagev player )
+!     audio [ [  ] ]
+
 
 ! :: <clip-viewer> ( clip -- gadget )
 !     clip-player-gadget :> player

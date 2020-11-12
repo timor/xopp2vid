@@ -1,7 +1,7 @@
-USING: accessors audio audio.engine audio.vorbis byte-arrays byte-vectors cairo
-cairo-gadgets cairo.ffi calendar classes.struct combinators destructors fry
-images.memory.private io.backend kernel locals math math.functions namespaces
-sequences strings xml xml.data xml.traversal ;
+USING: accessors alien audio audio.engine audio.vorbis byte-arrays byte-vectors
+cairo cairo-gadgets cairo.ffi calendar classes.struct combinators destructors
+fry images.memory.private io.backend kernel locals math math.functions
+namespaces sequences strings xml xml.data xml.traversal ;
 
 IN: stroke-unit.util
 
@@ -79,6 +79,12 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
 : audio-duration ( audio -- duration )
     { [ size>> ]
       [ channels>> ]
-      [ sample-bits>> * ]
+      [ sample-bits>> 8 / * ]
       [ sample-rate>> * ]
      } cleave / seconds ;
+
+: audio-slice ( audio offset -- audio' )
+    [ clone ] dip
+    [ [ - ] curry change-size ]
+    [ [ swap <displaced-alien> ] curry change-data ] bi ;
+

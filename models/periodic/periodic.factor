@@ -1,7 +1,31 @@
-USING: accessors calendar fry kernel literals locals math math.order models
-models.arrow models.model-slots models.range sequences timers ;
+USING: accessors calendar combinators fry kernel literals locals math math.order
+models models.arrow models.delay models.model-slots models.range sequences
+timers ;
 
 IN: models.periodic
+
+! ! Return a quotation which returns the last value along with the one it was
+! ! called before that, starting with f
+! :: <diff> ( quot: ( x -- x+1 ) -- quot: ( x -- x+1 x ) )
+!     f :> last!
+!     [ quot call last over last! ] ;
+
+! Enable with activate-control
+
+
+! Two conditions must be satisfied for this to run:
+! 1. The stepper must be activated ( e.g. by connecting to  )
+! 2. The stepper must be enabled
+! :: <range-stepper> ( range amount duration -- model )
+!     f range-stepper new-model :> stepper
+!     [ amount + ] <diff> :> closure
+!     range duration <delay> [
+!         first closure call :> ( next prev )
+!         next prev = dup [ next range set-range-value ] unless
+!     ]
+
+!     swap >>quot [ add-dependency ] keep ;
+
 
 SLOT: interval
 TUPLE: periodic < model
@@ -74,9 +98,9 @@ M: periodic model-activated dup model-changed ;
      range-max-value > ;
 
 ! Take a range model, step the value in periodic increments by step size, stop when done.
-:: range-stepper ( range amount interval-duration -- periodic range-end? )
-    interval-duration f <periodic> dup :> periodic
-    [ amount range range-model ?inc-model range
-      range-end? dup [ f periodic enable-model>> set-model ] when ] <arrow>
-    periodic swap
-    ;
+! :: range-stepper ( range amount interval-duration -- periodic range-end? )
+!     interval-duration f <periodic> dup :> periodic
+!     [ amount range range-model ?inc-model range
+!       range-end? dup [ f periodic enable-model>> set-model ] when ] <arrow>
+!     periodic swap
+!     ;

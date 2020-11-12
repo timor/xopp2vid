@@ -1,97 +1,195 @@
-USING: accessors calendar combinators kernel locals math models models.arrow
-models.range sequences timers ;
+USING: accessors audio.engine audio.gadget.private calendar combinators
+controls.animation kernel locals math math.functions models models.range
+namespaces stroke-unit.util ui.gadgets ui.gadgets.borders ;
 
 IN: audio.player-gadget
 
 ! CONSTANT: playback-step-ms 10 ;
 
-! Position, state
-TUPLE: playback-model < product animator ;
+: audio-playback-range ( audio -- range )
+    audio-duration duration>seconds [ 0 0 0 ] dip 0.5 <range> ;
 
-: <playback-model> ( position-model state-model -- model )
-    2array <product> ;
+! : audio-playback-stepper ( range -- periodic finished )
+!     0.5 dup seconds range-stepper ;
+! : audio-playback-stepper ( range -- stepper )
+!     0.5 [ seconds ] keep <range-stepper> ;
+: audio-playback-animation ( range -- animation )
+    0.5 [ seconds ] keep <range-animation> ;
 
-: playback-position ( value -- value ) first ; inline
-: playback-state ( value -- value ) second ; inline
+TUPLE: audio-player < border audio audio-clip last-position position animation ;
 
-! * Playback with stepping range model and callbacks
-TUPLE: playback position paused timer finished ;
-GENERIC: on-start ( playback -- )
-GENERIC: on-pause ( playback -- )
-GENERIC: on-reset ( playback -- )
-GENERIC: playback-speed ( playback -- steps/second )
-GENERIC: update-interval ( playback -- seconds )
-GENERIC: total-steps ( playback -- steps )
+: remember-position ( player -- ) dup position>> range-value swap last-position<< ;
+: position-changed? ( player -- ? ) [ position>> range-value ] [ last-position>> ] bi = not ;
 
-: total-duration ( playback -- seconds )
-    [ total-steps ] [ playback-speed ] bi / ;
+: make-offset-clip ( position-seconds audio -- clip )
+    initialize-audio-gadgets
+    [ audio-duration duration>seconds / ]
+    [ size>> * floor >integer ]
+    [ swap audio-slice ] tri
+    [ gadget-audio-engine get-global f ] dip f <static-audio-clip> ;
 
-: update-step ( playback -- n )
-    [ update-interval ] [ total-duration / ]
-    [ playback-speed ] tri * ;
+: init-audio-clip ( player -- )
+    { [ audio-clip>> [ stop-clip ] when* ]
+      [ position>> range-value ]
+      [ audio>> make-offset-clip ]
+      [ audio-clip<< ] } cleave ;
 
-: playback-range ( playback -- model )
-    [ 0 0 0 ] dip [ total-steps ] [ update-step ] bi <range> ;
+: resume-audio ( player -- )
+    dup position-changed?
+    [ dup init-audio-clip ] when
+    audio-clip>> play-clip ;
 
-: range-max? ( range -- ? )
-    [ range-model value>> ] [ range-step value>> + ] [ range-max-value ] tri >= ;
+: stop-audio ( player -- )
+    [ remember-position ]
+    [ audio-clip>> pause-clip ] bi ;
 
-: finished-model ( range -- model )
-    [ [ first ] [ 4 swap nths + ] [ fourth > ] tri ] <arrow> ;
+: reset-playback ( player -- )
+    position>> 0 swap set-range-value ;
 
-! : update-finished ( playback -- )
-!     [ position>> range-max? ] [ finished>> set-model ] bi ;
+! : maybe-reset-playback ( player -- )
+!     dup animation>> finished?
+!     [ reset-playback ] [ drop ] if ;
 
-: reset-playback ( playback -- )
-    [ position>> [ range-min-value ] [ set-range-value ] bi ]
-    ! [ update-finished ]
-    [ on-reset ] bi ;
+: start-playback ( player -- )
+    animation>> start-animation ;
+!     {
+!         ! [ dup position>> remove-connection ]
+!         ! [ paused>> f swap set-model ]
+!         [ maybe-reset-playback ]
+!         [ resume-audio ]
+!         [ animation>> start-animation ] } cleave ;
 
-: playback-finished? ( playback -- ? )
-    finished>> value>> ;
+: stop-playback ( player -- )
+    animation>> stop-animation ;
+!    { [ audio-clip>> pause-clip ]
+!      [ animation>> stop-animation ]
+!      [ remember-position ]
+!      ! [ paused>> t swap set-model ]
+!      ! [ dup position>> add-connection ]
+!    } cleave ;
 
-: maybe-reset ( playback -- )
-    dup playback-finished?
-    [ reset-playback ] [ drop ] if ;
+! : toggle-playback ( player -- )
+!     dup paused>> value>>
+!     [ start-playback ] [ stop-playback ] if ;
 
-: start-playback ( playback -- )
-    { [ maybe-reset ]
-      [ paused>> f swap set-model ]
-      [ on-start ]
-      [ timer>> start-timer ] } cleave ;
+GENERIC: on-state-change ( player state -- )
+M: running on-state-change drop resume-audio ;
+M: object on-state-change drop stop-audio ;
 
-: pause-playback ( playback -- )
-    [ timer>> stop-timer ]
-    [ paused>> t swap set-model ]
-    [ on-pause ] tri ;
+! M: audio-player graft*
+!     [ call-next-method ]
+!     [ animation>>  ] bi ;
 
-:: init-timer ( playback -- )
-    playback update-step :> step
-    playback position>> :> range
-    [ update-step range move-by
-      range range-max?
-      [ pause-playback ] when
+M: audio-player ungraft*
+    [ [ audio-clip>> [ stop-clip ] when* ]
+      [ animation>> stop-animation ] bi
     ]
-    f playback update-interval seconds <timer>
-    playback timer<< ;
+    [ call-next-method ] bi ;
 
-: toggle-playback ( playback -- )
-    dup state>> value>> paused? [ start-playback ] [ pause-playback ] if ;
+! : <playback-button> ( player model -- gadget )
+!     [ "⯈" "⏸" ? ] <arrow> <label-control> swap '[ drop _ toggle-playback ] <button> ;
 
-: new-playback ( class -- obj )
-    new dup
-    f <model> >>finished
-    t <model> >>paused
-    [ playback-range >>position ]
-    [ init-timer ]
-    [ reset-playback ]
-    tri ;
+! : <playback-slider> ( range -- gadget )
+!     horizontal <slider> ;
 
-: <playback-button> ( playback -- gadget )
-    [ [ "⯈" "⏸" ? ] <arrow> <label-control> ] [ [ toggle-playback ] curry ] <button> ;
+:: <audio-player> ( audio -- gadget )
+    audio audio-playback-range dup audio-playback-animation :> ( range animation )
+    animation <animation-controls> audio-player new-border dup :> player
+    [ player swap on-state-change ] animation on-change<<
+    range >>position
+    audio >>audio
+    animation >>animation ;
+    ! t <model> [ >>paused ] [ player swap <playback-button> ] bi f track-add
+    ! range <playback-slider> f track-add ;
 
-: <playback-slider> ( playback -- gadget )
-    position>> horizontal <slider> ;
 
-TUPLE: audio-playback < playback audio audio-clip ;
-M: audio-playback on-start
+! ! Position, state
+! TUPLE: playback-model < model range-model  ;
+
+! : <playback-model> ( position-model state-model -- model )
+!     2array <product> ;
+
+! : playback-position ( value -- value ) first ; inline
+! : playback-state ( value -- value ) second ; inline
+
+! ! * Playback with stepping range model and callbacks
+! TUPLE: playback position paused timer finished ;
+! GENERIC: on-start ( playback -- )
+! GENERIC: on-pause ( playback -- )
+! GENERIC: on-reset ( playback -- )
+! GENERIC: playback-speed ( playback -- steps/second )
+! GENERIC: update-interval ( playback -- seconds )
+! GENERIC: total-steps ( playback -- steps )
+
+! : total-duration ( playback -- seconds )
+!     [ total-steps ] [ playback-speed ] bi / ;
+
+! : update-step ( playback -- n )
+!     [ update-interval ] [ total-duration / ]
+!     [ playback-speed ] tri * ;
+
+! : playback-range ( playback -- model )
+!     [ 0 0 0 ] dip [ total-steps ] [ update-step ] bi <range> ;
+
+! : range-max? ( range -- ? )
+!     [ range-model value>> ] [ range-step value>> + ] [ range-max-value ] tri >= ;
+
+! : finished-model ( range -- model )
+!     [ [ first ] [ 4 swap nths + ] [ fourth > ] tri ] <arrow> ;
+
+! ! : update-finished ( playback -- )
+! !     [ position>> range-max? ] [ finished>> set-model ] bi ;
+
+! : reset-playback ( playback -- )
+!     [ position>> [ range-min-value ] [ set-range-value ] bi ]
+!     ! [ update-finished ]
+!     [ on-reset ] bi ;
+
+! : playback-finished? ( playback -- ? )
+!     finished>> value>> ;
+
+! : maybe-reset ( playback -- )
+!     dup playback-finished?
+!     [ reset-playback ] [ drop ] if ;
+
+! : start-playback ( playback -- )
+!     { [ maybe-reset ]
+!       [ paused>> f swap set-model ]
+!       [ on-start ]
+!       [ timer>> start-timer ] } cleave ;
+
+! : pause-playback ( playback -- )
+!     [ timer>> stop-timer ]
+!     [ paused>> t swap set-model ]
+!     [ on-pause ] tri ;
+
+! :: init-timer ( playback -- )
+!     playback update-step :> step
+!     playback position>> :> range
+!     [ update-step range move-by
+!       range range-max?
+!       [ pause-playback ] when
+!     ]
+!     f playback update-interval seconds <timer>
+!     playback timer<< ;
+
+! : toggle-playback ( playback -- )
+!     dup state>> value>> paused? [ start-playback ] [ pause-playback ] if ;
+
+! : new-playback ( class -- obj )
+!     new dup
+!     f <model> >>finished
+!     t <model> >>paused
+!     [ playback-range >>position ]
+!     [ init-timer ]
+!     [ reset-playback ]
+!     tri ;
+
+! : <playback-button> ( playback -- gadget )
+!     [ [ "⯈" "⏸" ? ] <arrow> <label-control> ] [ [ toggle-playback ] curry ] <button> ;
+
+! : <playback-slider> ( playback -- gadget )
+!     position>> horizontal <slider> ;
+
+! TUPLE: audio-playback < playback audio audio-clip ;
+! M: audio-playback on-start

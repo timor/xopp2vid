@@ -11,3 +11,7 @@ TUPLE: layer clips ;
 
 : load-xopp-file ( path -- xml )
     file>xopp ;
+
+: xopp-test ( -- xml clips )
+    "~/xournalpp/uebungen/1.3.xopp" load-xopp-file
+    dup analyze-clips ;
