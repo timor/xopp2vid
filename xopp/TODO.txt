@@ -1,0 +1,6 @@
+- single-coordinate stroke export problem
+- interface for loading project
+- interface for checking association stroke/clip/sound
+- interface for changing association stroke/clip/sound
+- preview
+- buttons for running commands on project files

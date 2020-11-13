@@ -3,7 +3,6 @@
 USING: xml.traversal ;
 IN: stroke-unit.elements
 
-! TBR ( elements )
 : strokes ( xml -- seq ) "stroke" tags-named ;
 
 : layers ( xml -- seq ) "layer" tags-named ;

@@ -51,6 +51,8 @@ IN: images.sequence-viewer
     dup <index-range> [ <item> ] keep ;
 
 TUPLE: image-player < pack animation ;
+! M: image-player hide-controls children>> second hide-gadget ;
+! M: image-player hide-controls children>> second show-gadget ;
 
 ! :: rebuild-animation ( seq-model player -- )
 !     seq-model value>> seq-range value>> player animation>> set-control-value ;
@@ -66,6 +68,11 @@ TUPLE: image-player < pack animation ;
 : ensure-model ( x -- x )
     dup model? [ <model> ] unless ;
 
+! : show-last-image ( player -- )
+!     [ model>> value>> last ]
+!     [ gadget-child ] bi
+!     [ swap set-image drop ] [ relayout ] bi ;
+
 :: <image-player> ( seq fps -- gadget )
     image-player new vertical >>orientation dup :> player
     seq ensure-model dup :> seq-model >>model
@@ -73,6 +80,7 @@ TUPLE: image-player < pack animation ;
     range-mdl fps recip seconds 1 <range-animation> dup :> animation >>animation
     elt-model <image-control> add-gadget
     animation <animation-controls> add-gadget ;
+
 
     ! model seq <range-select> <image-control> [ add-gadget ]
     ! model fps recip seconds 1 <range-animation> [ <animation-controls> add-gadget ] [ >>animation ] bi ;

@@ -1,6 +1,6 @@
-USING: accessors combinators fry kernel locals math models models.arrow timers
-ui.gadgets ui.gadgets.buttons ui.gadgets.labels ui.gadgets.packs
-ui.gadgets.sliders ;
+USING: accessors combinators controls fry kernel locals math models models.arrow
+models.range sequences timers ui.gadgets ui.gadgets.buttons ui.gadgets.labels
+ui.gadgets.packs ui.gadgets.sliders ;
 
 IN: controls.animation
 
@@ -67,8 +67,12 @@ PRIVATE>
 : precalc-range-max ( model -- )
     range-max [ activate-model ] [ deactivate-model ] bi ;
 
+TUPLE: animation-controls < pack ;
+M: animation-controls hide-controls* children>> [ hide-gadget ] each ;
+M: animation-controls show-controls* children>> [ show-gadget ] each ;
+
 : <animation-controls> ( animation -- gadget )
-    <shelf> swap [ playback-button add-gadget ]
+    animation-controls new horizontal >>orientation swap [ playback-button add-gadget ]
     [ model>> dup precalc-range-max
       [ horizontal <slider> ] [ step-slider-line >>line ] bi add-gadget ] bi ;
 
@@ -82,5 +86,8 @@ M: range-animation rewind-model-value
 : <range-animation> ( range delay step -- obj )
     [ range-animation new-animation ] dip >>step ;
 
+! Used to rewind into paused state
 : rewind-animation ( animation -- )
-    [ model>> ] keep rewind-model-value ;
+    [ [ model>> ] keep rewind-model-value ]
+    [ paused set-state ] bi
+    ;

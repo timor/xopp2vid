@@ -1,19 +1,11 @@
 USING: accessors cairo cairo-gadgets cairo-gadgets.private images.viewer kernel
 locals math.rectangles models models.arrow namespaces sequences stroke-unit.util
-ui.gadgets ;
+ui.gadgets ui.gadgets.desks ;
 
 IN: cairo.surface-renderer
 
 ! * Mixin for surface element gadgets
 ! MIXIN: cairo-render-g
-GENERIC: pref-rect* ( gadget -- rect )
-
-: pref-rect-dim ( seq -- dim )
-    [ { 0 0 } ] [ [ pref-rect* ] [ rect-union ] map-reduce
-                  rect-extent nip ceiling-dim ] if-empty ;
-
-! : prefer-loc ( gadget -- )
-!     [ pref-rect* loc>> ] keep loc<< ;
 ! M: cairo-render-gadget pref-rect*
 !     children>> [ pref-rect* ] [ rect-union ] map-reduce ;
 ! M: cairo-render-gadget pref-dim*

@@ -34,12 +34,13 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
     [ cairo_image_surface_get_height ] bi 2array ; inline
 
 ! Assume RGBA Data!
-: add-frame ( surface -- )
+: surface>image ( surface -- image )
     [ cairo_surface_flush ]
     [ cairo_image_surface_get_data ]
     [ surface-dim ] tri <bitmap-image>
-    BGRA >>component-order ubyte-components >>component-type
-    , ;
+    BGRA >>component-order ubyte-components >>component-type ;
+
+: add-frame ( surface -- ) surface>image , ;
 
 :: render-stroke-frames ( stroke surface -- )
     stroke stroke>color/seg :> ( color segments )
@@ -82,3 +83,14 @@ SYMBOL: last-stroke
           ] each
       ] with-image-surface
     ] { } make ;
+
+: cairo-move-loc ( loc -- )
+    cr swap first2 [ neg ] bi@ cairo_translate ;
+
+: clip-image ( clip -- image )
+    dup clip-rect rect-bounds ceiling-dim
+    [
+        [ cairo-move-loc ] dip
+        [ clip-strokes [ draw-stroke ] each ] dip
+        surface>image
+    ] with-image-surface ;

@@ -3,7 +3,7 @@
 USING: accessors arrays cairo cairo-gadgets cairo.ffi cairo.surface-renderer
 colors.hex grouping kernel locals math math.functions math.parser
 math.rectangles memoize.scoped sequences sequences.mapped sequences.zipped
-splitting xml.data xml.traversal ;
+splitting ui.gadgets.desks xml.data xml.traversal ;
 IN: stroke-unit.strokes
 
 : string>numbers ( str -- seq )
@@ -52,6 +52,7 @@ PREDICATE: stroke < tag name>> main>> "stroke" = ;
 ! : <stroke-gadget> ( stroke -- obj ) 1array <cairo-renderer> stroke-gadget new swap >>stroke ;
 
 M: stroke pref-rect* 1array strokes-rect ;
+M: stroke pref-loc* pref-rect* loc>> ;
 M: stroke render-cairo* draw-stroke ;
 
 ! M: stroke-gadget render-cairo*

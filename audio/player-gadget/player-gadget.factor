@@ -41,7 +41,7 @@ TUPLE: audio-player < border audio audio-clip last-position position animation ;
 
 : stop-audio ( player -- )
     [ remember-position ]
-    [ audio-clip>> pause-clip ] bi ;
+    [ audio-clip>> [ pause-clip ] when* ] bi ;
 
 : reset-playback ( player -- )
     position>> 0 swap set-range-value ;
@@ -85,6 +85,9 @@ M: audio-player ungraft*
       [ animation>> stop-animation ] bi
     ]
     [ call-next-method ] bi ;
+
+! M: audio-player hide-controls gadget-child hide-gadget ;
+! M: audio-player show-controls gadget-child show-gadget ;
 
 ! : <playback-button> ( player model -- gadget )
 !     [ "⯈" "⏸" ? ] <arrow> <label-control> swap '[ drop _ toggle-playback ] <button> ;
