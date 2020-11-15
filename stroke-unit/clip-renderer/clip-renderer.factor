@@ -47,6 +47,7 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
     stroke stroke>color/seg :> ( color segments )
     cr color set-source-color
     segments reverse clone >vector :> segments
+    surface add-frame
     [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
     [
         segment-timer get 0 >=
