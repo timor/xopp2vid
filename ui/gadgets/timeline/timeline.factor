@@ -44,6 +44,9 @@ TUPLE: slide-wrapper < pack timescale duration-model ;
 
 M: slide-wrapper model-changed ( model gadget -- ) nip relayout ;
 
+M: slide-wrapper focusable-child* ( gadget -- gadget )
+    gadget-child ;
+
 <PRIVATE
 : wrapper-offset ( wrapper -- n )
     parent>> separation>> 2 * ;
@@ -65,8 +68,11 @@ M: slide-wrapper pref-dim* dup slide-wrapper-sizes pack-pref-dim ;
 : wrapper-drag-ended ( value gadget -- )
     [ 0 max seconds ] [ duration-model>> set-model ] bi* ;
 
+: new-timeline ( separation timescale orientation class -- gadget )
+    new-track swap >>timescale swap >>separation ;
+
 : <timeline> ( separation timescale orientation -- gadget )
-    timeline new-track swap >>timescale swap >>separation ;
+    timeline new-timeline ;
 
 :: timeline-add ( timeline gadget duration -- timeline )
     gadget duration timeline [ timescale>> ] [ orientation>> ] bi <slide-wrapper> :> wrapper

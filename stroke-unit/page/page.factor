@@ -1,10 +1,11 @@
-USING: accessors calendar formatting grouping images.viewer
-images.viewer.private kernel math math.order math.rectangles math.vectors models
-models.arrow models.arrow.smart models.range namespaces opengl.textures
-sequences stroke-unit.clip-renderer stroke-unit.models.clip-display
-stroke-unit.util ui.gadgets ui.gadgets.labels ui.gadgets.packs
-ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
-ui.gadgets.wrappers.rect-wrappers ui.images ui.render ;
+USING: accessors calendar colors.constants formatting grouping images.viewer
+images.viewer.private kernel math math.order math.rectangles math.vectors
+memoize models models.arrow models.arrow.smart models.range namespaces
+opengl.textures sequences stroke-unit.clip-renderer
+stroke-unit.models.clip-display stroke-unit.util ui.gadgets ui.gadgets.labels
+ui.gadgets.packs ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
+ui.gadgets.wrappers.rect-wrappers ui.gestures ui.images ui.pens.solid ui.render
+;
 
 IN: stroke-unit.page
 
@@ -88,7 +89,7 @@ M: page-canvas pref-dim*
     swap horizontal <slider> fps get recip >>line add-gadget ;
 
 ! * Image-control that keeps aspect ratio
-TUPLE: clip-timeline-preview < image-control ;
+TUPLE: clip-timeline-preview < image-control clip-display ;
 <PRIVATE
 : adjust-image-dim ( pref-dim image-dim -- dim )
     [ [ [ first ] bi@ / ] [ [ second ] bi@ / ] 2bi
@@ -101,17 +102,50 @@ M: clip-timeline-preview draw-gadget*
       swap draw-scaled-texture ]
     [ drop ] if* ;
 
-! * Editor, includes editable timeline
-TUPLE: clip-timeline < timeline clip-displays ;
+SYMBOL: focused-clip-display
+MEMO: preview-pen ( -- pen )
+    COLOR: red <solid> ;
+
+: preview-gain-focus ( gadget -- )
+    [ preview-pen >>boundary relayout-1 ]
+    [ clip-display>> focused-clip-display set ] bi
+    ;
+: preview-lose-focus ( gadget -- )
+    f >>boundary relayout-1 ;
+
+clip-timeline-preview H{
+    { gain-focus [ preview-gain-focus ] }
+    { lose-focus [ preview-lose-focus ] }
+    { T{ button-down } [ request-focus ] }
+} set-gestures
 
 ! ** Clip preview gadgets in the timeline
 : <clip-timeline-preview> ( clip-display -- gadget )
     ! clip>> [ clip-image ] <arrow> <image-control> ;
     [ clip>> [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ]
-    [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ] bi ;
+    [ >>clip-display ]
+    [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ] tri ;
+
+! * Editor, includes editable timeline
+TUPLE: clip-timeline < timeline clip-displays ;
+
+: focused-clip-index ( timeline -- i )
+    clip-displays>> focused-clip-display get swap index ;
+
+: focus-clip-index ( timeline i -- )
+    swap children>> ?nth [ request-focus ] when* ;
+
+: timeline-focus-left ( timeline -- ) dup focused-clip-index 1 - focus-clip-index ;
+
+: timeline-focus-right ( timeline -- ) dup focused-clip-index 1 + focus-clip-index ;
+
+clip-timeline H{
+    { T{ key-down f f "h" } [ timeline-focus-left ] }
+    { T{ key-down f f "l" } [ timeline-focus-right ] }
+} set-gestures
 
 : <page-timeline> ( clip-displays -- gadget )
-    5 10 horizontal <timeline> swap
+    5 10 horizontal clip-timeline new-timeline swap [ >>clip-displays ] keep
     [ [ <clip-timeline-preview> ] [ draw-duration>> ] bi timeline-add ] each ;
 
 : <page-editor> ( clip-displays -- gadget )

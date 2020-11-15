@@ -81,4 +81,4 @@ M: model-model model-changed
     prev-model clip-model start-time-model speed-model draw-duration-model new-clip-display ;
 
 : connect-clip-displays ( clip-display1 clip-display2 -- )
-    prev>> set-model ;
+    prev>> ?set-model ;
