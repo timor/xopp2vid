@@ -8,7 +8,10 @@ IN: stroke-unit.page.tests
     <page-parameters> 2dup swap first
     <clip-view> nip over current-time>> ;
 
-: page-test ( -- page-canvas time )
+: page-canvas-test ( -- page-canvas range )
     xopp-test nip 10 head <page-canvas>
-    dup parameters>> current-time>>
+    swap
     ;
+
+: page-test ( -- gadget )
+    xopp-test nip 10 head <page-viewer> ;
