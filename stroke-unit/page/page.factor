@@ -1,9 +1,10 @@
-USING: accessors calendar formatting images.viewer images.viewer.private kernel
-locals math math.functions math.order math.rectangles math.vectors models
-models.arrow models.arrow.smart models.range namespaces opengl.textures
-sequences stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util
-ui.gadgets ui.gadgets.labels ui.gadgets.packs ui.gadgets.sliders
-ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.images ui.render ;
+USING: accessors calendar formatting grouping images.viewer
+images.viewer.private kernel locals math math.functions math.order
+math.rectangles math.vectors models models.arrow models.arrow.smart models.range
+namespaces opengl.textures sequences stroke-unit.clip-renderer stroke-unit.clips
+stroke-unit.util ui.gadgets ui.gadgets.labels ui.gadgets.packs
+ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
+ui.gadgets.wrappers.rect-wrappers ui.images ui.render ;
 
 IN: stroke-unit.page
 
@@ -20,7 +21,7 @@ IN: stroke-unit.page
     [ [ clip-rect ] dip rect-scale ] <smart-arrow> ;
 
 ! These are all models
-TUPLE: clip-display clip start-time stroke-speed draw-duration ;
+TUPLE: clip-display prev clip start-time stroke-speed draw-duration ;
 
 ! For adjusting duration from ui controls
 : <draw-speed--> ( duration-model clip-model -- speed-model )
@@ -33,6 +34,23 @@ TUPLE: clip-display clip start-time stroke-speed draw-duration ;
 ! For updating display from speed parameter
 : <draw-duration--> ( clip-model stroke-speed-model -- duration-model )
     [ clip-draw-duration ] <smart-arrow> ;
+
+: compute-start-time ( prev-clip -- seconds )
+    [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi duration>seconds + ]
+    [ 0 ] if* ;
+! Set up start time from model of previous clip-display
+: <start-time--> ( prev-clip-display -- time-model )
+    [ compute-start-time ] <?arrow> ;
+
+! : setup-start-time ( clip-display -- )
+!     dup prev>>
+!     [ <start-time--> ]
+!     [ 0 <model> ] if*
+!     swap start-time<< ;
+
+: connect-clip-displays ( clip-display1 clip-display2 -- )
+    prev>> set-model ;
+    ! [ prev<< ] [ setup-start-time ] bi ;
 
 ! Convention: times in seconds, durations in durations
 : <clip-position--> ( time-model start-time-model duration-model -- position-model )
@@ -48,14 +66,25 @@ TUPLE: clip-display clip start-time stroke-speed draw-duration ;
 : <frame-select--> ( image-seq-model time-model start-time-model duration-model -- element-model )
     <clip-position--> [ swap float-nth ] <smart-arrow> ;
 
+! Creating the actual model container
+:: <clip-display> ( clip stroke-speed -- obj )
+    clip-display new
+    f <model> dup :> prev-model >>prev
+    clip <model> dup :> clip-model >>clip
+    stroke-speed <model> dup :> speed-model >>stroke-speed
+    clip-model speed-model <draw-duration--> >>draw-duration
+    prev-model <start-time--> >>start-time ;
+
 ! All slots models
 TUPLE: page-parameters current-time scale ;
 : <page-parameters> ( -- obj )
     0 <model> 1 <model> page-parameters boa ;
 
 : recompute-page-duration ( clip-diplays -- seconds )
-    [ draw-duration>> compute-model duration>seconds ]
-    map-sum ;
+    last [ start-time>> compute-model ]
+    [ draw-duration>> compute-model duration>seconds ] bi + ;
+    ! [ draw-duration>> compute-model duration>seconds ]
+    ! map-sum ;
 
 : <range-page-parameters> ( clip-displays -- range-model obj )
     recompute-page-duration [ 0 0 0 ] dip 0 <range>
@@ -70,17 +99,21 @@ TUPLE: page-parameters current-time scale ;
     [ [ current-time>> ] [ [ start-time>> ] [ draw-duration>> ] bi ] bi* ]
     2tri <frame-select--> <image-control> ;
 
-: <clip-display> ( clip start-time stroke-speed -- obj )
-    [ duration>seconds ] dip [ <model> ] tri@
-    3dup nip <draw-duration-->
-    clip-display boa ;
+
+! : <end-time--> ( prev-end-time-model duration-model -- time-model )
+!     [ time+ ] <?smart-arrow> ;
+
+    ! [ duration>seconds ] dip [ <model> ] tri@
+    ! 3dup nip <draw-duration-->
+    ! [ f ] 4 ndip clip-display boa ;
 
 ! Initial, assume default stroke speed, return sequence of clip-display models
-:: initialize-clips ( clips -- seq )
-    instant
-    stroke-speed get :> speed
-    clips [| clip | clip speed clip-draw-duration [ time+ ] keepd
-    clip swap speed <clip-display> ] map nip ;
+: initialize-clips ( clips -- seq )
+    stroke-speed get
+    [ <clip-display> ] curry map
+    dup 2 <clumps> [ first2 connect-clip-displays ] each ;
+    ! clips [| clip | clip speed clip-draw-duration [ time+ ] keepd
+    ! clip swap speed <clip-display> ] map nip ;
 
 TUPLE: page-canvas < gadget parameters clip-displays ;
 M: page-canvas pref-dim*
