@@ -2,8 +2,8 @@
 ! See http://factorcode.org/license.txt for BSD license.
 USING: accessors arrays cairo cairo-gadgets cairo.ffi cairo.surface-renderer
 colors.hex grouping kernel locals math math.functions math.parser
-math.rectangles memoize.scoped sequences sequences.mapped sequences.zipped
-splitting ui.gadgets.desks xml.data xml.traversal ;
+math.rectangles math.vectors memoize.scoped sequences sequences.mapped
+sequences.zipped splitting ui.gadgets.desks xml.data xml.traversal ;
 IN: stroke-unit.strokes
 
 : string>numbers ( str -- seq )
@@ -14,6 +14,9 @@ IN: stroke-unit.strokes
 
 : stroke-segments ( stroke -- seq )
     [ "width" attr string>numbers ] [ stroke-points 2 <clumps> ] bi <zipped> ; memo-scope
+
+: segment-length ( segment -- n )
+    second first2 distance ; inline
 
 : stroke>color/seg ( stroke -- color segments )
     [ "color" attr 1 tail hex>rgba ] [ stroke-segments ] bi ;

@@ -8,6 +8,10 @@ IN: stroke-unit.util
 : ceiling-dim ( dim -- dim )
     [ ceiling >integer ] map ; inline
 
+: rect-scale ( rect factor -- rect' )
+    [ clone ] dip
+    '[ _ v*n ] [ change-dim ] [ change-loc ] bi ;
+
 SYMBOL: current-audio-folder
 
 ! frames/second

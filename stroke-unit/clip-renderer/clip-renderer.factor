@@ -11,14 +11,15 @@ SYMBOL: segment-timer
 
 SYMBOL: stroke-speed
 stroke-speed [ 70 ] initialize
+SYMBOL: scale-factor
+scale-factor [ 1 ] initialize
+SYMBOL: travel-speed-factor
+travel-speed-factor [ 1 ] initialize
 
-: travel-speed ( -- pt/sec ) stroke-speed get 1 * ;
+: travel-speed ( -- pt/sec ) stroke-speed get travel-speed-factor get * ;
 
 MEMO: (frame-time) ( fps -- seconds ) recip ;
 : frame-time ( -- seconds ) fps get (frame-time) ;
-
-: segment-length ( segment -- n )
-    second first2 distance ; inline
 
 : segment-time ( segment -- seconds )
     segment-length stroke-speed get /f ; inline
@@ -27,7 +28,7 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
     elements>> [ stroke? ] filter ;
 
 : clip-rect ( clip -- rect )
-    clip-strokes strokes-rect ;
+    clip-strokes strokes-rect scale-factor get rect-scale ;
 
 : surface-dim ( surface -- dim )
     [ cairo_image_surface_get_width ]
@@ -57,10 +58,12 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
         ] when
     ] while ;
 
-: inter-stroke-time ( stroke1 stroke2 -- seconds )
+: inter-stroke-length ( stroke1 stroke2 -- pts )
     [ stroke-segments last ] [ stroke-segments first ] bi* [ second ] bi@
-    [ second ] [ first ] bi*
-    distance travel-speed /f ;
+    [ second ] [ first ] bi* distance ;
+
+: inter-stroke-time ( stroke1 stroke2 -- seconds )
+    inter-stroke-length travel-speed /f ;
 
 SYMBOL: last-stroke
 :: add-inter-stroke-pause ( stroke -- )
@@ -76,6 +79,7 @@ SYMBOL: last-stroke
            0 segment-timer set
            last-stroke off
            cr loc first2 [ neg ] bi@ cairo_translate
+           cr scale-factor get dup cairo_scale
            strokes [
                [ add-inter-stroke-pause ]
                [ surface render-stroke-frames ]

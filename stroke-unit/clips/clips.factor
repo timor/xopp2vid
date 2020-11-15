@@ -45,13 +45,23 @@ TAG: image change-clip drop ;
       current-clips get
     ] with-current-clips ;
 
-: clip-video-duration ( clip -- duration )
+! Adjusted for travel speed
+: clip-move-distance ( clip -- pts )
     clip-strokes
-    [ [ stroke-segments ] map concat [ segment-time ] map-sum  ]
+    [ [ stroke-segments ] map concat [ segment-length ] map-sum  ]
     [ dup length 1 >
-        [ 2 <clumps> [ first2 inter-stroke-time ] map-sum ]
-        [ drop 0 ] if
-    ] bi + seconds ;
+      [ 2 <clumps> [ first2 inter-stroke-length travel-speed-factor get * ] map-sum ]
+      [ drop 0 ] if
+    ] bi + ;
+
+: clip-video-duration ( clip -- duration )
+    clip-move-distance stroke-speed get /f ;
+    ! clip-strokes
+    ! [ [ stroke-segments ] map concat [ segment-time ] map-sum  ]
+    ! [ dup length 1 >
+    !     [ 2 <clumps> [ first2 inter-stroke-time ] map-sum ]
+    !     [ drop 0 ] if
+    ! ] bi + seconds ;
 
 : load-audio ( clip -- ? )
     dup audio>> [ nip ] [
