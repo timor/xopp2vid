@@ -1,7 +1,7 @@
 USING: accessors calendar formatting grouping images.viewer
-images.viewer.private kernel locals math math.functions math.order
-math.rectangles math.vectors models models.arrow models.arrow.smart models.range
-namespaces opengl.textures sequences stroke-unit.clip-renderer stroke-unit.clips
+images.viewer.private kernel math math.order math.rectangles math.vectors models
+models.arrow models.arrow.smart models.range namespaces opengl.textures
+sequences stroke-unit.clip-renderer stroke-unit.models.clip-display
 stroke-unit.util ui.gadgets ui.gadgets.labels ui.gadgets.packs
 ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
 ui.gadgets.wrappers.rect-wrappers ui.images ui.render ;
@@ -15,65 +15,17 @@ IN: stroke-unit.page
 
 : <clip-frames--> ( clip-model scale-model stroke-speed-model -- image-seq-model )
     [ stroke-speed [ scaled-clip-frames ] with-variable ]
-    <smart-arrow> ;
+    <?smart-arrow> ;
 
 : <clip-rect--> ( clip-model scale-model -- rect-model )
-    [ [ clip-rect ] dip rect-scale ] <smart-arrow> ;
-
-! These are all models
-TUPLE: clip-display prev clip start-time stroke-speed draw-duration ;
-
-! For adjusting duration from ui controls
-: <draw-speed--> ( duration-model clip-model -- speed-model )
-    [ [ duration>seconds ] [ clip-move-distance ] bi* swap / ]
-    <smart-arrow> ;
-
-: clip-draw-duration ( clip stroke-speed -- duration )
-    [ clip-move-distance ] dip / seconds ;
-
-! For updating display from speed parameter
-: <draw-duration--> ( clip-model stroke-speed-model -- duration-model )
-    [ clip-draw-duration ] <smart-arrow> ;
-
-: compute-start-time ( prev-clip -- seconds )
-    [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi duration>seconds + ]
-    [ 0 ] if* ;
-! Set up start time from model of previous clip-display
-: <start-time--> ( prev-clip-display -- time-model )
-    [ compute-start-time ] <?arrow> ;
-
-! : setup-start-time ( clip-display -- )
-!     dup prev>>
-!     [ <start-time--> ]
-!     [ 0 <model> ] if*
-!     swap start-time<< ;
-
-: connect-clip-displays ( clip-display1 clip-display2 -- )
-    prev>> set-model ;
-    ! [ prev<< ] [ setup-start-time ] bi ;
+    [ [ clip-rect ] dip rect-scale ] <?smart-arrow> ;
 
 ! Convention: times in seconds, durations in durations
 : <clip-position--> ( time-model start-time-model duration-model -- position-model )
     [ duration>seconds [ - ] dip / 0 1 clamp ] <?smart-arrow> ;
 
-! f is valid between 0.0 and 1.0
-: float-nth ( f seq -- elt )
-    [ 0 1 clamp ] dip
-    [ length 1 - * floor >integer ]
-    [ nth ] bi ; inline
-
-! TODO: make intermediate model for clip-time which does not update if out of bounds
 : <frame-select--> ( image-seq-model time-model start-time-model duration-model -- element-model )
     <clip-position--> [ swap float-nth ] <smart-arrow> ;
-
-! Creating the actual model container
-:: <clip-display> ( clip stroke-speed -- obj )
-    clip-display new
-    f <model> dup :> prev-model >>prev
-    clip <model> dup :> clip-model >>clip
-    stroke-speed <model> dup :> speed-model >>stroke-speed
-    clip-model speed-model <draw-duration--> >>draw-duration
-    prev-model <start-time--> >>start-time ;
 
 ! All slots models
 TUPLE: page-parameters current-time scale ;

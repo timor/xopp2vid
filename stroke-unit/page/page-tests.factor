@@ -20,6 +20,6 @@ IN: stroke-unit.page.tests
     test-clips initialize-clips [ <page-viewer> ] keep
     <page-timeline> ;
 
-: page-editor-test ( -- gadget )
-    test-clips initialize-clips
+: page-editor-test ( -- models gadget )
+    test-clips initialize-clips dup
     <page-editor> ;
