@@ -9,16 +9,16 @@ IN: stroke-unit.page.tests
     <clip-view> nip over current-time>> ;
 
 : page-canvas-test ( -- page-canvas range )
-    test-clips initialize-clips <page-canvas>
-    swap
-    ;
+    test-clips initialize-clips
+    [ <range-page-parameters> ] keep
+    <page-canvas> swap ;
 
-: page-test ( -- gadget )
-    test-clips initialize-clips <page-viewer> ;
+! : page-test ( -- gadget )
+!     test-clips initialize-clips <page-viewer> ;
 
-: page-timeline-test ( -- gadget gadget )
-    test-clips initialize-clips [ <page-viewer> ] keep
-    <page-timeline> ;
+! : page-timeline-test ( -- gadget gadget )
+!     test-clips initialize-clips [ <page-viewer> ] keep
+!     <page-timeline> ;
 
 : page-editor-test ( -- models gadget )
     test-clips initialize-clips dup

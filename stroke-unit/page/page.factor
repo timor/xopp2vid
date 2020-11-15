@@ -1,7 +1,7 @@
-USING: accessors calendar colors.constants formatting grouping images.viewer
-images.viewer.private kernel math math.order math.rectangles math.vectors
-memoize models models.arrow models.arrow.smart models.range namespaces
-opengl.textures sequences stroke-unit.clip-renderer
+USING: accessors arrays calendar colors.constants combinators formatting
+grouping images.viewer images.viewer.private kernel locals math math.order
+math.rectangles math.vectors memoize models models.arrow models.arrow.smart
+models.range namespaces opengl.textures sequences stroke-unit.clip-renderer
 stroke-unit.models.clip-display stroke-unit.util ui.gadgets ui.gadgets.labels
 ui.gadgets.packs ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
 ui.gadgets.wrappers.rect-wrappers ui.gestures ui.images ui.pens.solid ui.render
@@ -29,9 +29,9 @@ IN: stroke-unit.page
     <clip-position--> [ swap float-nth ] <smart-arrow> ;
 
 ! All slots models
-TUPLE: page-parameters current-time scale ;
+TUPLE: page-parameters current-time draw-scale time-scale ;
 : <page-parameters> ( -- obj )
-    0 <model> 1 <model> page-parameters boa ;
+    0 <model> 1 <model> 10 <model> page-parameters boa ;
 
 : recompute-page-duration ( clip-diplays -- seconds )
     last [ start-time>> compute-model ]
@@ -39,34 +39,24 @@ TUPLE: page-parameters current-time scale ;
     ! [ draw-duration>> compute-model duration>seconds ]
     ! map-sum ;
 
-: <range-page-parameters> ( clip-displays -- range-model obj )
+: <range-page-parameters> ( clip-displays -- range-model parameters )
     recompute-page-duration [ 0 0 0 ] dip 0 <range>
-    dup range-model 1 <model> page-parameters boa ;
+    dup range-model 1 <model> 10 <model> page-parameters boa ;
 
 : <clip-display-frames--> ( page-parameters clip-display -- image-seq-model )
-    [ scale>> ] [ [ clip>> ] [ stroke-speed>> ] bi ] bi* swapd <clip-frames--> ;
+    [ draw-scale>> ] [ [ clip>> ] [ stroke-speed>> ] bi ] bi* swapd <clip-frames--> ;
 
 : <clip-view> ( page-parameters clip-display -- rect-model gadget )
-    [ [ scale>> ] [ clip>> ] bi* swap <clip-rect--> ]
+    [ [ draw-scale>> ] [ clip>> ] bi* swap <clip-rect--> ]
     [ <clip-display-frames--> ]
     [ [ current-time>> ] [ [ start-time>> ] [ draw-duration>> ] bi ] bi* ]
     2tri <frame-select--> <image-control> ;
-
-
-! : <end-time--> ( prev-end-time-model duration-model -- time-model )
-!     [ time+ ] <?smart-arrow> ;
-
-    ! [ duration>seconds ] dip [ <model> ] tri@
-    ! 3dup nip <draw-duration-->
-    ! [ f ] 4 ndip clip-display boa ;
 
 ! Initial, assume default stroke speed, return sequence of clip-display models
 : initialize-clips ( clips -- seq )
     stroke-speed get
     [ <clip-display> ] curry map
     dup 2 <clumps> [ first2 connect-clip-displays ] each ;
-    ! clips [| clip | clip speed clip-draw-duration [ time+ ] keepd
-    ! clip swap speed <clip-display> ] map nip ;
 
 TUPLE: page-canvas < gadget parameters clip-displays ;
 M: page-canvas pref-dim*
@@ -77,18 +67,16 @@ M: page-canvas pref-dim*
     [ <clip-view> <rect-wrapper> ] with map
     add-gadgets drop ;
 
-: <page-canvas> ( clip-displays -- seconds-range gadget )
-    page-canvas new swap [ >>clip-displays ] keep
-    <range-page-parameters> swapd >>parameters
+: <page-canvas> ( page-parameters clip-displays -- gadget )
+    page-canvas new swap >>clip-displays
+    swap >>parameters
     dup init-page-gadgets ;
 
 ! * Viewer, includes canvas and controls
-: <page-viewer> ( clip-displays -- gadget )
-    <page-canvas>
-    <filled-pile> swap add-gadget
-    swap horizontal <slider> fps get recip >>line add-gadget ;
+: <page-slider> ( range-model -- gadget )
+    horizontal <slider> fps get recip >>line ;
 
-! * Image-control that keeps aspect ratio
+! * Image-control that keeps aspect ratio and displays other stuff for use in timeline
 TUPLE: clip-timeline-preview < image-control clip-display ;
 <PRIVATE
 : adjust-image-dim ( pref-dim image-dim -- dim )
@@ -108,10 +96,33 @@ MEMO: preview-pen ( -- pen )
 
 : preview-gain-focus ( gadget -- )
     [ preview-pen >>boundary relayout-1 ]
-    [ clip-display>> focused-clip-display set ] bi
-    ;
+    [ clip-display>> focused-clip-display set ] bi ;
+
 : preview-lose-focus ( gadget -- )
     f >>boundary relayout-1 ;
+
+: <preview-position--> ( current-time clip-display -- model )
+    [ start-time>> ] [ draw-duration>> ] bi
+    [ duration>seconds [ - ] dip /
+      dup 0 1 between? [ drop f ] unless
+    ] <?smart-arrow> ;
+
+! Model: preview-position
+TUPLE: preview-cursor < gadget ;
+: cursor-rect ( gadget position -- rect )
+    [ parent>> ] dip
+    [ [ dim>> first ] dip * 0 2array ]
+    [ drop dim>> second 1 swap 2array ] 2bi <rect> ; inline
+
+M: preview-cursor model-changed
+    [ swap value>>
+      [ [ show-gadget ] [ hide-gadget ] if ]
+      [ [ dupd cursor-rect rect-bounds [ >>loc ] [ >>dim ] bi* drop ] [ drop ] if* ] 2bi ]
+    keep parent>> relayout-1 ;
+
+: <preview-cursor> ( current-time clip-display -- gadget )
+    <preview-position--> preview-cursor new swap >>model
+    COLOR: blue <solid> >>interior ;
 
 clip-timeline-preview H{
     { gain-focus [ preview-gain-focus ] }
@@ -120,13 +131,16 @@ clip-timeline-preview H{
 } set-gestures
 
 ! ** Clip preview gadgets in the timeline
-: <clip-timeline-preview> ( clip-display -- gadget )
-    ! clip>> [ clip-image ] <arrow> <image-control> ;
-    [ clip>> [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ]
-    [ >>clip-display ]
-    [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ] tri ;
+: <clip-timeline-preview> ( current-time clip-display -- gadget )
+    {
+        [ clip>> [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ]
+        [ >>clip-display ]
+        [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
+        [ swapd <preview-cursor> add-gadget ]
+    } cleave ;
 
 ! * Editor, includes editable timeline
+! Model is the current time
 TUPLE: clip-timeline < timeline clip-displays ;
 
 : focused-clip-index ( timeline -- i )
@@ -144,10 +158,17 @@ clip-timeline H{
     { T{ key-down f f "l" } [ timeline-focus-right ] }
 } set-gestures
 
-: <page-timeline> ( clip-displays -- gadget )
-    5 10 horizontal clip-timeline new-timeline swap [ >>clip-displays ] keep
-    [ [ <clip-timeline-preview> ] [ draw-duration>> ] bi timeline-add ] each ;
+:: <page-timeline> ( page-parameters clip-displays -- gadget )
+    5 10 horizontal clip-timeline new-timeline clip-displays [ >>clip-displays ] keep
+    [ [ page-parameters current-time>> swap <clip-timeline-preview> ] [ draw-duration>> ] bi timeline-add ] each ;
 
 : <page-editor> ( clip-displays -- gadget )
-    vertical <track> swap [ <page-viewer> 0.85 track-add ]
-    [ <page-timeline> 0.15 track-add ] bi ;
+    vertical <track> swap
+    [ <range-page-parameters> ] keep
+    rot
+    [
+        [ <page-canvas> 0.85 track-add ]
+        [ <page-timeline> 0.15 track-add ] 2bi
+    ] dip
+    <page-slider> f track-add
+    ;
