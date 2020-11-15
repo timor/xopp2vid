@@ -1,7 +1,9 @@
-USING: accessors calendar images.viewer kernel locals math math.functions
-math.order math.rectangles math.vectors models models.arrow.smart models.range
-namespaces sequences stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.util ui.gadgets ui.gadgets.packs ui.gadgets.sliders ;
+USING: accessors calendar formatting images.viewer images.viewer.private kernel
+locals math math.functions math.order math.rectangles math.vectors models
+models.arrow models.arrow.smart models.range namespaces opengl.textures
+sequences stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util
+ui.gadgets ui.gadgets.labels ui.gadgets.packs ui.gadgets.sliders
+ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.images ui.render ;
 
 IN: stroke-unit.page
 
@@ -89,13 +91,44 @@ M: page-canvas pref-dim*
     [ <clip-view> <rect-wrapper> ] with map
     add-gadgets drop ;
 
-: <page-canvas> ( clips -- seconds-range gadget )
-    page-canvas new swap initialize-clips [ >>clip-displays ] keep
+: <page-canvas> ( clip-displays -- seconds-range gadget )
+    page-canvas new swap [ >>clip-displays ] keep
     <range-page-parameters> swapd >>parameters
     dup init-page-gadgets ;
 
 ! * Viewer, includes canvas and controls
-: <page-viewer> ( clips -- gadget )
+: <page-viewer> ( clip-displays -- gadget )
     <page-canvas>
     <filled-pile> swap add-gadget
     swap horizontal <slider> fps get recip >>line add-gadget ;
+
+! * Image-control that keeps aspect ratio
+TUPLE: clip-timeline-preview < image-control ;
+<PRIVATE
+: adjust-image-dim ( pref-dim image-dim -- dim )
+    [ [ [ first ] bi@ / ] [ [ second ] bi@ / ] 2bi
+      min ] [ n*v ] bi ;
+PRIVATE>
+M: clip-timeline-preview draw-gadget*
+    dup image>>
+    [ [ [ image-gadget-texture ] [ dim>> ] bi ]
+      [ image-dim adjust-image-dim ] bi*
+      swap draw-scaled-texture ]
+    [ drop ] if* ;
+
+! * Editor, includes editable timeline
+TUPLE: clip-timeline < timeline clip-displays ;
+
+! ** Clip preview gadgets in the timeline
+: <clip-timeline-preview> ( clip-display -- gadget )
+    ! clip>> [ clip-image ] <arrow> <image-control> ;
+    [ clip>> [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ]
+    [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ] bi ;
+
+: <page-timeline> ( clip-displays -- gadget )
+    5 10 horizontal <timeline> swap
+    [ [ <clip-timeline-preview> ] [ draw-duration>> ] bi timeline-add ] each ;
+
+: <page-editor> ( clip-displays -- gadget )
+    vertical <track> swap [ <page-viewer> 0.85 track-add ]
+    [ <page-timeline> 0.15 track-add ] bi ;
