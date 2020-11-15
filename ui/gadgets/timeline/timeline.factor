@@ -4,7 +4,7 @@ ui.gadgets.packs.private ui.gadgets.tracks ui.pens.solid ;
 
 IN: ui.gadgets.timeline
 
-! * Gadget for layouting things with durations(in seconds) along an axis
+! * Gadget for layouting things with durations along an axis
 
 
 ! Model: sequence of durations, or product model?
@@ -20,7 +20,7 @@ M: separator layout* COLOR: black <solid> >>interior drop ;
     [ timeline? ] find-parent separation>> ;
 PRIVATE>
 M: separator loc>value
-    [ parent>> orientation>> v. ]
+    [ parent>> orientation>> vdot ]
     [ parent>> timescale>> / ] bi
     ;
 
