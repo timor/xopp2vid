@@ -46,22 +46,36 @@ TAG: image change-clip drop ;
     ] with-current-clips ;
 
 ! Adjusted for travel speed
-: clip-move-distance ( clip -- pts )
-    clip-strokes
+: strokes-move-distance ( strokes -- l )
     [ [ stroke-segments ] map concat [ segment-length ] map-sum  ]
     [ dup length 1 >
       [ 2 <clumps> [ first2 inter-stroke-length travel-speed-factor get * ] map-sum ]
       [ drop 0 ] if
     ] bi + ;
 
+: clip-move-distance ( clip -- pts )
+    clip-strokes strokes-move-distance ;
+
 : clip-video-duration ( clip -- duration )
     clip-move-distance stroke-speed get /f ;
-    ! clip-strokes
-    ! [ [ stroke-segments ] map concat [ segment-time ] map-sum  ]
-    ! [ dup length 1 >
-    !     [ 2 <clumps> [ first2 inter-stroke-time ] map-sum ]
-    !     [ drop 0 ] if
-    ! ] bi + seconds ;
+
+! position is between 0.0 and 1.0
+! TODO: candidate for caching if needed
+: clip-find-offset-stroke ( clip position -- stroke )
+    [ clip-strokes dup ] dip
+    over strokes-move-distance *
+    swap dup length <iota> [ 1 + head-slice strokes-move-distance ] with <map>
+    natural-search drop swap nth ;
+
+! * Splitting
+
+! Create new clips with subsets of elements before and after position
+: clip-split-at ( clip position -- clip-before clip-after )
+    [ clone dup ] dip clip-find-offset-stroke
+    over elements>> [ index ] keep swap cut-slice
+    [ >>elements ] [ [ dup clone ] dip >>elements ] bi* ;
+
+! * Audio
 
 : load-audio ( clip -- ? )
     dup audio>> [ nip ] [

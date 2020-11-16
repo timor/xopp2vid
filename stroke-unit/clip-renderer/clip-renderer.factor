@@ -99,3 +99,17 @@ SYMBOL: last-stroke
         [ clip-strokes [ draw-stroke ] each ] dip
         surface>image
     ] with-image-surface ;
+
+! Calculate the index of the strokes which corresponds to the given time after
+! clip start
+:: clip-time-stroke-index ( clip offset -- i )
+    0 :> time!
+    clip clip-strokes 2 <clumps>
+    [ first2 :> ( s1 s2 )
+      time offset >=
+      [ s1 ]
+      [
+
+      ]
+
+    ] find drop
