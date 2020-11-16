@@ -247,9 +247,14 @@ TUPLE: page-editor < track page-parameters clip-displays ;
 ! 2. Remove the clip from the clip-displays list
 ! 3. Remove the gadget from the canvas
 ! 4. Remove the gadget from the timeline
+: this/next ( seq index -- elt elt/f )
+    [ swap nth ] [ 1 + swap ?nth ] 2bi ;
+
 : connect-neighbours ( clip-displays index -- )
-    [ swap nth ] [ 1 + swap ?nth ] 2bi
-    [ [ prev>> [ compute-model ] [ deactivate-model-model ] bi ] dip
+    this/next
+    [ [ prev>> [ compute-model ] [ ! deactivate-model-model
+            drop
+                                 ] bi ] dip
       connect-clip-displays  ]
     [ drop ] if* ;
 
@@ -258,32 +263,44 @@ kill-stack [ V{ } clone ] initialize
 
 ! TODO: can be non-destructive if it's a model
 : kill-nth-clip-display ( clip-displays index -- seq )
-    swap [ nth kill-stack get push ] [ remove-nth! ] 2bi ;
+    swap [ nth kill-stack get push ] [ remove-nth ] 2bi ;
+
+! TODO: change-clip-displays combinator
 
 : remove-nth-gadget ( gadget i -- ) swap children>> nth unparent ;
 
-! TODO: this would be MUCH easier with model-driven gadget-children...
 : editor-kill-clip ( gadget index -- )
-    { [ [ canvas-gadget ] dip remove-nth-gadget ]
-      ! [ [ timeline-gadget ] dip remove-nth-gadget ]
-      [ [ dup clip-displays>> compute-model ] dip
-        [ connect-neighbours ]
-        [ kill-nth-clip-display swap clip-displays>> set-model ] 2bi ]
-      [ drop editor-refocus ]
-    } 2cleave ;
+    over clip-displays>> compute-model
+    2dup swap connect-neighbours
+    swap kill-nth-clip-display swap clip-displays>> set-model ;
 
-! : insert-nth! ( elt n seq -- seq )
-!     [  ]
+! before manipulating the sequence
+: connect-insertion ( clip-displays index clip-display -- )
+    [ swap nth dup prev>> compute-model ] dip
+    [ connect-clip-displays ]
+    [ swap connect-clip-displays ] bi ;
 
-! : editor-insert-clip ( gadget index -- )
-!     { [ [  ] ] }
+
+: editor-insert-clip ( gadget index -- )
+    kill-stack get
+    [ 2drop ]
+    [| gadget index stack |
+     stack pop :> to-insert
+     gadget clip-displays>> dup :> model compute-model :> displays
+     displays index to-insert connect-insertion
+     to-insert index displays insert-nth
+     model set-model
+    ] if-empty ;
+
 
 : editor-remove-focused-clip ( gadget -- )
-    focused-clip-index get editor-kill-clip ;
+    [ focused-clip-index get editor-kill-clip ]
+    [ editor-refocus ] bi ;
 
-! : editor-yank-before ( gadget -- )
-!     focused-clip-index-get editor-insert-clip
+: editor-yank-before ( gadget -- )
+    focused-clip-index get editor-insert-clip ;
 
 page-editor H{
     { T{ key-down f f "x" } [ editor-remove-focused-clip ] }
+    { T{ key-down f f "P" } [ editor-yank-before ] }
 } set-gestures

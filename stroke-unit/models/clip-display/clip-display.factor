@@ -86,3 +86,7 @@ M: model-model model-changed
 
 : connect-clip-displays ( clip-display1 clip-display2 -- )
     prev>> ?set-model ;
+
+! TODO Needed?
+: set-clip ( clip clip-display -- )
+    clip>> set-model ;
