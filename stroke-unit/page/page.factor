@@ -60,19 +60,38 @@ TUPLE: page-parameters current-time draw-scale time-scale ;
     [ <clip-display> ] curry map >vector
     dup 2 <clumps> [ first2 connect-clip-displays ] each ;
 
-TUPLE: page-canvas < gadget parameters clip-displays ;
+! Model: sequence of clip-displays
+TUPLE: page-canvas < gadget parameters ;
 M: page-canvas pref-dim*
     { 0 0 } swap [ rect-extent nip vmax ] each-child ;
 
-: init-page-gadgets ( page-canvas -- )
-    dup [ parameters>> ] [ clip-displays>> ] bi
-    [ <clip-view> <rect-wrapper> ] with map
-    add-gadgets drop ;
+! Cache preview and view gadgets
+SYMBOL: clip-view-cache
+clip-view-cache [ IH{ } clone ] initialize
+
+: <positioned-clip-view> ( page-parameters clip-display -- gadget )
+    <clip-view> <rect-wrapper> ;
+
+:: find-clip-view ( page-parameters clip-display -- gadget )
+    clip-display clip-view-cache get
+    [ [ page-parameters ] dip <positioned-clip-view> ] cache ;
+
+: synchronize-views ( gadget clip-displays -- )
+    over [ clear-gadget ] [ parameters>> ] bi
+    swap [ find-clip-view ] with map add-gadgets drop ;
+
+M: page-canvas model-changed
+    swap value>> [ synchronize-views ] keepd relayout ;
+
+! : init-page-gadgets ( page-canvas -- )
+!     dup [ parameters>> ] [ clip-displays>> ] bi
+!     [ <clip-view> <rect-wrapper> ] with map
+!     add-gadgets drop ;
 
 : <page-canvas> ( page-parameters clip-displays -- gadget )
-    page-canvas new swap >>clip-displays
-    swap >>parameters
-    dup init-page-gadgets ;
+    page-canvas new swap >>model
+    swap >>parameters ;
+    ! dup init-page-gadgets ;
 
 ! * Viewer, includes canvas and controls
 : <page-slider> ( range-model -- gadget )
@@ -156,20 +175,20 @@ TUPLE: clip-timeline < timeline ;
 
 : timeline-focus-right ( timeline -- ) focused-clip-index get 1 + focus-clip-index ;
 
-SYMBOL: clip-view-cache
-clip-view-cache [ IH{ } clone ] initialize
+SYMBOL: clip-preview-cache
+clip-preview-cache [ IH{ } clone ] initialize
 
-:: find-clip-view ( page-parameters clip-display -- gadget )
-    clip-display clip-view-cache get
+:: find-timeline-preview ( page-parameters clip-display -- gadget )
+    clip-display clip-preview-cache get
     [ [ page-parameters current-time>> ] dip <clip-timeline-preview> ] cache ;
 
-: changed-clip-displays ( new-clip-displays children -- added removed )
-    [ clip-display>> ] map
-    [ diff members ]
-    [ swap diff members ] 2bi ;
+! : changed-clip-displays ( new-clip-displays children -- added removed )
+!     [ clip-display>> ] map
+!     [ diff members ]
+!     [ swap diff members ] 2bi ;
 
-: add-gadgets-lazy ( parent childen -- parent )
-    not-in-layout over [ (add-gadget) ] curry each ;
+! : add-gadgets-lazy ( parent childen -- parent )
+!     not-in-layout over [ (add-gadget) ] curry each ;
 
 ! :: synchronize-previews ( gadget clip-displays -- )
 !     clip-displays gadget children>> changed-clip-displays :> ( added removed )
@@ -182,8 +201,7 @@ clip-view-cache [ IH{ } clone ] initialize
 DEFER: find-page-parameters
 : synchronize-previews ( gadget clip-displays -- )
     over [ clear-gadget ] [ find-page-parameters ] bi
-    swap [ [ find-clip-view ] [ draw-duration>> ] bi timeline-add ] with each drop ;
-
+    swap [ [ find-timeline-preview ] [ draw-duration>> ] bi timeline-add ] with each drop ;
 
 M: clip-timeline model-changed
     swap value>> [ synchronize-previews ] keepd relayout ;
@@ -203,10 +221,9 @@ TUPLE: page-editor < track page-parameters clip-displays ;
 :: <page-editor> ( clip-displays -- gadget )
     vertical page-editor new-track
     clip-displays <range-page-parameters> :> ( range-model page-parameters )
-    page-parameters clip-displays
-    <page-canvas> 0.85 track-add
     clip-displays <model> [ >>clip-displays ] keep
-    <page-timeline> 0.15 track-add
+    [ page-parameters swap <page-canvas> 0.85 track-add ]
+    [ <page-timeline> 0.15 track-add ] bi
     range-model <page-slider> f track-add
     page-parameters >>page-parameters ;
 

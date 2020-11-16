@@ -61,6 +61,10 @@ M: model-model model-changed
     f model-model new-model
     [ set-model ] keep ;
 
+! TODO This would maybe easier if there was a generic on deactivation
+: deactivate-model-model ( model-model -- )
+    disconnect-old ;
+
 ! Set up start time from model of previous clip-display
 : <start-time--> ( prev-clip-display -- time-model )
     [ compute-start-time ] <?arrow> ;
