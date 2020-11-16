@@ -78,7 +78,8 @@ M: slide-wrapper pref-dim* dup slide-wrapper-sizes pack-pref-dim ;
     gadget duration timeline [ timescale>> ] [ orientation>> ] bi <slide-wrapper> :> wrapper
     timeline wrapper f track-add ;
 
-: set-timescale ( timeline timescale -- )
+: set-timescale ( timescale timeline -- )
+    swap
     [ >>timescale drop ]
     [ swap children>> [ timescale<< ] with each ]
     [ drop children>> [ relayout ] each ] 2tri ;

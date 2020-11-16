@@ -1,7 +1,8 @@
-USING: accessors arrays assocs audio.player-gadget calendar combinators controls
-controls.animation images.sequence-viewer images.viewer io.pathnames kernel
-locals math.rectangles models models.arrow models.arrow.smart namespaces
-sequences sequences.zipped stroke-unit.clip-renderer stroke-unit.elements
+USING: accessors arrays assocs audio.player-gadget binary-search calendar
+combinators controls controls.animation grouping images.sequence-viewer
+images.viewer io.pathnames kernel locals math math.order math.rectangles models
+models.arrow models.arrow.smart namespaces sequences sequences.mapped
+sequences.zipped stroke-unit.clip-renderer stroke-unit.elements
 stroke-unit.strokes stroke-unit.util timers ui.gadgets ui.gadgets.books
 ui.gadgets.borders ui.gadgets.buttons ui.gadgets.desks ui.gadgets.labels
 ui.gadgets.packs ui.gestures ui.pens.image xml.syntax ;
@@ -69,11 +70,20 @@ TAG: image change-clip drop ;
 
 ! * Splitting
 
+: clear-clip-audio ( clip -- clip )
+    f >>audio
+    +no-audio+ >>audio-path ;
+
 ! Create new clips with subsets of elements before and after position
+! audio removed for the second one
 : clip-split-at ( clip position -- clip-before clip-after )
     [ clone dup ] dip clip-find-offset-stroke
     over elements>> [ index ] keep swap cut-slice
-    [ >>elements ] [ [ dup clone ] dip >>elements ] bi* ;
+    [ >>elements ] [ [ dup clone ] dip >>elements clear-clip-audio ] bi* ;
+
+! TODO: handle audio correctly
+: clip-merge ( clip1 clip2 -- clip )
+    swap clone [ swap elements>> append ] change-elements ;
 
 ! * Audio
 

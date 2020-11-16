@@ -2,9 +2,9 @@ USING: accessors arrays assocs calendar colors.constants combinators formatting
 grouping hashtables.identity images.viewer images.viewer.private kernel locals
 math math.order math.rectangles math.vectors memoize models models.arrow
 models.arrow.smart models.range namespaces opengl.textures sequences sets
-stroke-unit.clip-renderer stroke-unit.models.clip-display stroke-unit.util
-ui.gadgets ui.gadgets.labels ui.gadgets.packs ui.gadgets.private
-ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
+stroke-unit.clip-renderer stroke-unit.clips stroke-unit.models.clip-display
+stroke-unit.util ui.gadgets ui.gadgets.labels ui.gadgets.packs
+ui.gadgets.private ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
 ui.gadgets.wrappers.rect-wrappers ui.gestures ui.images ui.pens.solid ui.render
 vectors ;
 
@@ -31,7 +31,7 @@ FROM: namespaces => set ;
     <clip-position--> [ swap float-nth ] <smart-arrow> ;
 
 ! All slots models
-TUPLE: page-parameters current-time draw-scale time-scale ;
+TUPLE: page-parameters current-time draw-scale timescale ;
 : <page-parameters> ( -- obj )
     0 <model> 1 <model> 10 <model> page-parameters boa ;
 
@@ -216,19 +216,31 @@ clip-timeline H{
     clip-displays >>model ;
 
 ! clip-displays is a model
-TUPLE: page-editor < track page-parameters clip-displays ;
+TUPLE: page-editor < track page-parameters clip-displays timescale-observer ;
 
 :: <page-editor> ( clip-displays -- gadget )
     vertical page-editor new-track
     clip-displays <range-page-parameters> :> ( range-model page-parameters )
     clip-displays <model> [ >>clip-displays ] keep
     [ page-parameters swap <page-canvas> 0.85 track-add ]
-    [ <page-timeline> 0.15 track-add ] bi
+    [ <page-timeline> <scroller> 0.15 track-add ] bi
     range-model <page-slider> f track-add
     page-parameters >>page-parameters ;
 
 : canvas-gadget ( editor -- gadget ) children>> first ;
-: timeline-gadget ( editor -- gadget ) children>> second ;
+: timeline-gadget ( editor -- gadget ) children>> second viewport>> gadget-child ;
+
+M: page-editor graft*
+    { [ call-next-method ]
+      [ page-parameters>> timescale>> [ [ set-timescale ] keepd ] ]
+      [ timeline-gadget swap curry <arrow> [ activate-model ] keep ]
+      [ timescale-observer<< ] } cleave ;
+
+M: page-editor ungraft*
+    [ timescale-observer>> deactivate-model ]
+    [ call-next-method ] bi ;
+
+M: page-editor focusable-child* timeline-gadget ;
 
 : find-page-parameters ( gadget -- paramters )
     [ page-editor? ] find-parent dup [ page-parameters>> ] when ;
@@ -241,6 +253,10 @@ TUPLE: page-editor < track page-parameters clip-displays ;
 : editor-refocus ( editor -- )
     timeline-gadget focused-clip-index get focus-clip-index ;
 
+! ** Manipulating the clip-display model value
+SYMBOL: kill-stack
+kill-stack [ V{ } clone ] initialize
+
 ! Following things need to be done:
 ! 1. Connect the predecessor and the successor
 ! 2. Deactivate the model-model
@@ -250,6 +266,9 @@ TUPLE: page-editor < track page-parameters clip-displays ;
 : this/next ( seq index -- elt elt/f )
     [ swap nth ] [ 1 + swap ?nth ] 2bi ;
 
+: this/prev ( seq index -- elt elt/f )
+    [ swap nth ] [ 1 - swap ?nth ] 2bi ;
+
 : connect-neighbours ( clip-displays index -- )
     this/next
     [ [ prev>> [ compute-model ] [ ! deactivate-model-model
@@ -258,21 +277,11 @@ TUPLE: page-editor < track page-parameters clip-displays ;
       connect-clip-displays  ]
     [ drop ] if* ;
 
-SYMBOL: kill-stack
-kill-stack [ V{ } clone ] initialize
-
-! TODO: can be non-destructive if it's a model
 : kill-nth-clip-display ( clip-displays index -- seq )
     swap [ nth kill-stack get push ] [ remove-nth ] 2bi ;
 
-! TODO: change-clip-displays combinator
-
-: remove-nth-gadget ( gadget i -- ) swap children>> nth unparent ;
-
-: editor-kill-clip ( gadget index -- )
-    over clip-displays>> compute-model
-    2dup swap connect-neighbours
-    swap kill-nth-clip-display swap clip-displays>> set-model ;
+: delete-nth-clip-display ( clip-displays index -- seq )
+    kill-nth-clip-display kill-stack get pop drop ;
 
 ! before manipulating the sequence
 : connect-insertion ( clip-displays index clip-display -- )
@@ -280,27 +289,69 @@ kill-stack [ V{ } clone ] initialize
     [ connect-clip-displays ]
     [ swap connect-clip-displays ] bi ;
 
+: insert-clip-before ( clip-displays index clip-display -- seq )
+    3dup connect-insertion
+    spin insert-nth ;
 
-: editor-insert-clip ( gadget index -- )
+! ** Doing that in editor context
+
+! TODO: use combinator
+: editor-kill-clip ( gadget index -- )
+    over clip-displays>> compute-model
+    2dup swap connect-neighbours
+    swap kill-nth-clip-display swap clip-displays>> set-model ;
+
+! TODO: use combinator
+: editor-insert-clip-before ( gadget index -- )
     kill-stack get
     [ 2drop ]
     [| gadget index stack |
      stack pop :> to-insert
      gadget clip-displays>> dup :> model compute-model :> displays
-     displays index to-insert connect-insertion
-     to-insert index displays insert-nth
+     displays index to-insert
+     insert-clip-before
+     ! connect-insertion
+     ! to-insert index displays insert-nth
      model set-model
     ] if-empty ;
-
 
 : editor-remove-focused-clip ( gadget -- )
     [ focused-clip-index get editor-kill-clip ]
     [ editor-refocus ] bi ;
 
+:: change-clip-displays ( gadget quot: ( ... value -- ... new-value/f ) -- gadget )
+    gadget clip-displays>> dup :> model compute-model
+    quot call [ model set-model ] when* gadget ; inline
+
+: change-clip-displays-focused ( gadget quot: ( ...value index -- ... new-value ) -- gadget )
+   [ focused-clip-index get ] dip curry change-clip-displays ; inline
+
+: <merged-clip-display> ( d1 d2 -- d )
+    [ [ clip>> compute-model ] bi@ clip-merge ] keepd
+    stroke-speed>> value>> [ stroke-speed get ] unless*  <clip-display> ;
+
+: editor-merge-left ( gadget -- )
+    [| seq i |
+     seq i this/prev :> ( this prev )
+     prev [
+         seq
+         i 1 - delete-nth-clip-display
+         i 1 - delete-nth-clip-display
+         i 1 - this prev <merged-clip-display> insert-clip-before
+     ] [ f ] if
+    ] change-clip-displays-focused editor-refocus ;
+
 : editor-yank-before ( gadget -- )
-    focused-clip-index get editor-insert-clip ;
+    focused-clip-index get editor-insert-clip-before ;
+
+: editor-change-timescale ( gadget factor -- )
+    over page-parameters>> timescale>> compute-model *
+    swap page-parameters>> timescale>> set-model ;
 
 page-editor H{
     { T{ key-down f f "x" } [ editor-remove-focused-clip ] }
     { T{ key-down f f "P" } [ editor-yank-before ] }
+    { T{ key-down f f "m" } [ editor-merge-left ] }
+    { T{ key-down f f "-" } [ 1/2 editor-change-timescale ] }
+    { T{ key-down f f "=" } [ 2 editor-change-timescale ] }
 } set-gestures
