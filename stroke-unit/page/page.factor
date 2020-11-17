@@ -121,7 +121,9 @@ MEMO: preview-pen ( -- pen )
 DEFER: set-focus-index
 : preview-gain-focus ( gadget -- )
     [ preview-pen >>boundary relayout-1 ]
-    [ dup clip-display>> set-focus-index ] bi ;
+    [ dup clip-display>> set-focus-index ]
+    [ [ dim>> { 0 0 } swap <rect> ] keep scroll>rect ]
+    tri ;
 
 : preview-lose-focus ( gadget -- )
     f >>boundary relayout-1 ;
