@@ -63,7 +63,11 @@ PRIVATE>
 
 ! TODO: Make pack-sizes generic
 M: slide-wrapper layout* dup slide-wrapper-sizes pack-layout ;
-M: slide-wrapper pref-dim* dup slide-wrapper-sizes pack-pref-dim ;
+M: slide-wrapper pref-dim*
+    [ dim>> ]
+    [ dup slide-wrapper-sizes pack-pref-dim ]
+    [ orientation>> ] tri set-axis ;
+
 
 : wrapper-drag-ended ( value gadget -- )
     [ 0 max seconds ] [ duration-model>> set-model ] bi* ;
