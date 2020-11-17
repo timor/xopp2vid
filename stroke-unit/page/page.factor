@@ -338,13 +338,6 @@ kill-stack [ V{ } clone ] initialize
     [ drop stroke-speed>> compute-model ] 2bi
     [ <clip-display> ] curry bi@ ;
 
-! : split-nth-clip-at ( clip-displays index position -- seq )
-!     2over delete-nth-clip-display nip
-!     swap <split-clip-display>
-!     [ insert-clip-before ] bi-curry@ bi ;
-! : split-nth-clip-at ( clip-displays index position -- seq )
-!     [ delete-nth-clip-display ] dip ;
-
 ! ** Doing that in editor context
 
 ! TODO: use combinator
@@ -377,16 +370,6 @@ kill-stack [ V{ } clone ] initialize
             to-insert insert-clip-after
         ] change-clip-displays-focused drop
     ] unless-empty ;
-    ! [ 2drop ]
-    ! [| stack index diplays gadget index |
-    !  stack pop :> to-insert
-    !  gadget clip-displays>> dup :> model compute-model :> displays
-    !  displays index to-insert
-    !  insert-clip-before
-    !  ! connect-insert-before
-    !  ! to-insert index displays insert-nth
-    !  model set-model
-    ! ] if-empty ;
 
 : editor-kill-focused ( gadget -- )
     [ focused-clip-index get editor-kill-clip ]
@@ -401,16 +384,9 @@ kill-stack [ V{ } clone ] initialize
      i 1 - seq nth [
          seq i delete-nth-clip-display :> this
          i 1 - delete-nth-clip-display :> prev
-         ! i dup 1 - [ delete-nth-clip-display ] bi-curry@ bi
-         ! swap
          i 2 - prev this <merged-clip-display> insert-clip-after
-         ! i 1 - delete-nth-clip-display
-         ! i 2 - prev this <merged-clip-display> insert-clip-after
      ] [ f ] if
     ] change-clip-displays-focused editor-refocus ;
-
-! : editor-yank-before ( gadget -- ) focused-clip-index get editor-insert-clip-before ;
-! : editor-yank-after ( gadget -- ) focused-clip-index get editor-insert-clip-after ;
 
 : editor-move ( gadget offset -- )
     [ drop ]
