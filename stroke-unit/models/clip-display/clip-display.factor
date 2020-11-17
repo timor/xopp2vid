@@ -94,3 +94,8 @@ M: model-model model-changed
 ! TODO Needed?
 : set-clip ( clip clip-display -- )
     clip>> set-model ;
+
+TUPLE: pause-display < clip-display ;
+:: <pause-display> ( initial-duration -- obj )
+    no-predecessor-clip get <model-model>
+    <empty-clip> <model> over <start-time--> 0 <model> initial-duration <model> new-clip-display ;

@@ -12,6 +12,10 @@ IN: stroke-unit.clips
 TUPLE: clip ogg-file audio-path audio elements ;
 : <clip> ( audio-path -- obj ) clip new swap >>audio-path V{ } clone >>elements ;
 
+: <empty-clip> ( -- obj ) clip new ;
+
+PREDICATE: empty-clip < clip elements>> empty? ;
+
 SYMBOL: current-clips
 SINGLETON: +no-audio+
 

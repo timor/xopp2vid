@@ -83,6 +83,7 @@ clip-view-cache [ IH{ } clone ] initialize
     [ [ page-parameters ] dip <positioned-clip-view> ] cache ;
 
 : synchronize-views ( gadget clip-displays -- )
+    [ clip>> compute-model empty-clip? ] reject
     over [ clear-gadget ] [ parameters>> ] bi
     swap [ find-clip-view ] with map add-gadgets drop ;
 
@@ -167,9 +168,16 @@ clip-timeline-preview H{
     [ stroke-speed>> ] bi
     [ "%.1fs\n%.1fpt/s" sprintf ] <?smart-arrow> ;
 
+GENERIC: <clip-preview-image> ( model clip -- gadget )
+
+M: stroke-unit.clips:clip <clip-preview-image>
+    drop [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ;
+MEMO: <empty-image> ( -- image ) { { 1 } } matrix>image ;
+M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new-image-gadget* ;
+
 : <clip-timeline-preview> ( current-time clip-display -- gadget )
     {
-        [ clip>> [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ]
+        [ clip>> dup compute-model <clip-preview-image> ]
         [ >>clip-display ]
         [ <clip-parameter-string--> <label-control> add-gadget ]
         ! [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
@@ -446,6 +454,9 @@ kill-stack [ V{ } clone ] initialize
     fps get /
     swap page-parameters>> current-time>> [ compute-model + ] [ set-model ] bi ;
 
+: editor-insert-pause ( gadget duration -- )
+    <pause-display> kill-stack get push editor-yank-before ;
+
 page-editor H{
     { T{ key-down f f "x" } [ editor-kill-focused ] }
     { T{ key-down f f "P" } [ editor-yank-before ] }
@@ -460,4 +471,5 @@ page-editor H{
     { T{ key-down f f "]" } [ 1 editor-wind-by ] }
     { T{ key-down f f "{" } [ -10 editor-wind-by ] }
     { T{ key-down f f "}" } [ 10 editor-wind-by ] }
+    { T{ key-down f f "n" } [ 10 seconds editor-insert-pause ] }
 } set-gestures

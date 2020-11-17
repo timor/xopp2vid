@@ -23,3 +23,6 @@ IN: stroke-unit.page.tests
 : page-editor-test ( -- models gadget )
     test-clips initialize-clips dup
     <page-editor> ;
+
+: test-editor ( -- models gadget )
+    page-editor-test dup "foo" open-window ;
