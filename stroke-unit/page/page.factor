@@ -1,23 +1,26 @@
-USING: accessors arrays assocs calendar colors.constants combinators formatting
-grouping hashtables.identity images.viewer images.viewer.private kernel locals
-math math.order math.rectangles math.vectors memoize models models.arrow
-models.arrow.smart models.range namespaces opengl.textures sequences sets
-stroke-unit.clip-renderer stroke-unit.clips stroke-unit.models.clip-display
-stroke-unit.util ui.gadgets ui.gadgets.labels ui.gadgets.packs
-ui.gadgets.private ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline
-ui.gadgets.tracks ui.gadgets.wrappers.rect-wrappers ui.gestures ui.images
-ui.pens.solid ui.render vectors ;
+USING: accessors animators arrays assocs calendar colors.constants combinators
+formatting grouping hashtables.identity images.viewer images.viewer.private
+kernel locals math math.order math.rectangles math.vectors memoize models
+models.arrow models.arrow.smart models.range namespaces opengl.textures
+sequences sets stroke-unit.clip-renderer stroke-unit.clips
+stroke-unit.models.clip-display stroke-unit.util ui.gadgets ui.gadgets.labels
+ui.gadgets.packs ui.gadgets.private ui.gadgets.scrollers ui.gadgets.sliders
+ui.gadgets.timeline ui.gadgets.tracks ui.gadgets.wrappers.rect-wrappers
+ui.gestures ui.images ui.pens.solid ui.render vectors ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
+
+SYMBOL: preview-stroke-speed
+preview-stroke-speed [ 70 <model> ] initialize
 
 ! * Cobbling together an image sequence viewer using models
 ! TODO: memoize this on a page cache
 : scaled-clip-frames ( clip scale -- seq )
     scale-factor [ render-clip-frames ] with-variable ;
 
-: <clip-frames--> ( clip-model scale-model stroke-speed-model -- image-seq-model )
-    [ stroke-speed [ scaled-clip-frames ] with-variable ]
+: <clip-preview-frames--> ( clip-model scale-model -- image-seq-model )
+    preview-stroke-speed get [ stroke-speed [ scaled-clip-frames ] with-variable ]
     <?smart-arrow> ;
 
 : <clip-rect--> ( clip-model scale-model -- rect-model )
@@ -49,7 +52,7 @@ TUPLE: page-parameters current-time draw-scale timescale ;
     dup range-model 1 <model> 10 <model> page-parameters boa ;
 
 : <clip-display-frames--> ( page-parameters clip-display -- image-seq-model )
-    [ draw-scale>> ] [ [ clip>> ] [ stroke-speed>> ] bi ] bi* swapd <clip-frames--> ;
+    [ draw-scale>> ] [ clip>> ] bi* swap <clip-preview-frames--> ;
 
 : <clip-view> ( page-parameters clip-display -- rect-model gadget )
     [ [ draw-scale>> ] [ clip>> ] bi* swap <clip-rect--> ]
@@ -158,11 +161,18 @@ clip-timeline-preview H{
 } set-gestures
 
 ! ** Clip preview gadgets in the timeline
+: <clip-parameter-string--> ( clip-display -- str )
+    [ start-time>> ]
+    ! [ draw-duration>> ]
+    [ stroke-speed>> ] bi
+    [ "%.1fs\n%.1fpt/s" sprintf ] <?smart-arrow> ;
+
 : <clip-timeline-preview> ( current-time clip-display -- gadget )
     {
         [ clip>> [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ]
         [ >>clip-display ]
-        [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
+        [ <clip-parameter-string--> <label-control> add-gadget ]
+        ! [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
         [ swapd <preview-cursor> add-gadget ]
     } cleave ;
 
@@ -224,11 +234,12 @@ clip-timeline H{
     clip-displays >>model ;
 
 ! clip-displays is a model
-TUPLE: page-editor < track page-parameters clip-displays timescale-observer ;
+TUPLE: page-editor < track page-parameters clip-displays timescale-observer animator ;
 
 :: <page-editor> ( clip-displays -- gadget )
     vertical page-editor new-track
     clip-displays <range-page-parameters> :> ( range-model page-parameters )
+    fps get recip [ seconds ] keep range-model <range-animator> >>animator
     clip-displays <model> [ >>clip-displays ] keep
     [ page-parameters swap <page-canvas> 0.85 track-add ]
     [ <page-timeline> <scroller> 0.15 track-add ] bi
@@ -420,10 +431,20 @@ kill-stack [ V{ } clone ] initialize
         [ editor-yank-before ]
         [ editor-yank-before ]
     } cleave ;
-    ! dup editor-kill-clip
-    ! kill-stack get pop <split-clip-display>
-    ! [  ]
-    ! [ split-nth-clip-at ] curry change-clip-displays-focused drop ;
+
+: editor-toggle-playback ( gadget -- )
+    animator>> toggle-animation ;
+
+: get-focused-clip ( gadget -- clip-display/f )
+    clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
+
+: editor-wind-to-focused ( gadget -- )
+    [ get-focused-clip start-time>> compute-model ]
+    [ page-parameters>> current-time>> set-model ] bi ;
+
+: editor-wind-by ( gadget frames -- )
+    fps get /
+    swap page-parameters>> current-time>> [ compute-model + ] [ set-model ] bi ;
 
 page-editor H{
     { T{ key-down f f "x" } [ editor-kill-focused ] }
@@ -433,4 +454,10 @@ page-editor H{
     { T{ key-down f f "s" } [ editor-split-focused-clip ] }
     { T{ key-down f f "-" } [ 1/2 editor-change-timescale ] }
     { T{ key-down f f "=" } [ 2 editor-change-timescale ] }
+    { T{ key-down f f " " } [ editor-toggle-playback ] }
+    { T{ key-down f { C+ } "l" } [ editor-wind-to-focused ] }
+    { T{ key-down f f "[" } [ -1 editor-wind-by ] }
+    { T{ key-down f f "]" } [ 1 editor-wind-by ] }
+    { T{ key-down f f "{" } [ -10 editor-wind-by ] }
+    { T{ key-down f f "}" } [ 10 editor-wind-by ] }
 } set-gestures

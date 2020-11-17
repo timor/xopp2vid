@@ -37,6 +37,9 @@ no-predecessor-clip
 : <draw-duration--> ( clip-model stroke-speed-model -- duration-model )
     [ clip-draw-duration ] <smart-arrow> ;
 
+: <stroke-speed--> ( clip-model draw-duration-model -- stroke-speed-model )
+    [ [ clip-move-distance ] dip duration>seconds / ] <?smart-arrow> ;
+
 : compute-start-time ( prev-clip -- seconds )
     [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi duration>seconds + ]
     [ 0 ] if* ;
@@ -76,11 +79,12 @@ M: model-model model-changed
     [ nth ] bi ; inline
 
 ! Creating the actual model container
-:: <clip-display> ( clip stroke-speed -- obj )
+:: <clip-display> ( clip initial-stroke-speed -- obj )
     no-predecessor-clip get <model-model> :> prev-model
     clip <model> :> clip-model
-    stroke-speed <model> :> speed-model
-    clip-model speed-model <draw-duration--> :> draw-duration-model
+    clip initial-stroke-speed clip-draw-duration <model> :> draw-duration-model
+    ! clip-model speed-model <draw-duration--> :> draw-duration-model
+    clip-model draw-duration-model <stroke-speed--> :> speed-model
     prev-model <start-time--> :> start-time-model
     prev-model clip-model start-time-model speed-model draw-duration-model new-clip-display ;
 
