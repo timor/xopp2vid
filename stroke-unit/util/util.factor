@@ -92,3 +92,39 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     [ [ - ] curry change-size ]
     [ [ swap <displaced-alien> ] curry change-data ] bi ;
 
+: audio-bytes ( audio -- seq ) [ data>> ] [ size>> ] bi memory>byte-array ;
+: audio-sample-size ( audio -- bytes ) sample-bits>> 8 / ;
+: audio-packet-size ( audio -- bytes ) [ audio-sample-size ] [ channels>> ] bi * ;
+: audio-normalize-scale ( audio -- x ) sample-bits>> 1 - 2^ ;
+
+: audio-values ( audio -- seq )
+    { [ data>> ]
+      [ audio-packet-size <groups> ]
+      [ audio-sample-size [ <groups> ] curry map <flipped> ]
+      [ [ sample-bits>> ] [ audio-normalize-scale ] bi '[ [ _ signed-endian> _ /f ] <map> ] map ] } cleave ;
+
+: color>bytes ( color -- seq )
+    >rgba-components [ spin ] dip 4array [ 255 * >integer ] B{ } map-as ;
+
+:: audio-image-column ( value height fg bg -- seq )
+    height <iota> [ value height * < fg bg ? color>bytes ] map <reversed> ;
+
+:: bg-column ( height bg -- seq )
+    height [ bg color>bytes ] replicate ;
+
+:: audio-image ( audio channel width height fg bg -- image )
+    channel audio audio-values nth [ abs ] <map> :> values
+    values length width /i :> chunks
+    values chunks <groups> [ supremum ] map
+    :> levels
+    width <iota> [| x | x levels ?nth
+                  [ height fg bg audio-image-column ]
+                  [ height bg bg-column ] if* ] map <flipped> concat
+    concat
+    <image> swap >>bitmap width height 2array >>dim
+    ubyte-components >>component-type
+    BGRA >>component-order ;
+
+
+: alpha-color ( color alpha -- rgba )
+    [ >rgba-components drop ] dip <rgba> ;

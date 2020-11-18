@@ -1,6 +1,6 @@
 USING: accessors arrays calendar colors.constants combinators controls kernel
-locals math math.order math.vectors models sequences ui.gadgets ui.gadgets.packs
-ui.gadgets.packs.private ui.gadgets.tracks ui.pens.solid ;
+locals math math.order math.vectors models sequences stroke-unit.util ui.gadgets
+ui.gadgets.packs ui.gadgets.packs.private ui.gadgets.tracks ui.pens.solid ;
 
 IN: ui.gadgets.timeline
 
@@ -14,10 +14,12 @@ TUPLE: timeline < track
     ;
 
 TUPLE: separator < drag-control ;
-M: separator layout* COLOR: black <solid> >>interior drop ;
+M: separator layout* COLOR: black 0.2 alpha-color <solid> >>interior drop ;
 <PRIVATE
 : find-separation ( gadget -- n )
     [ timeline? ] find-parent separation>> ;
+
+: square ( x -- dim ) dup 2array ; inline
 PRIVATE>
 M: separator loc>value
     [ parent>> orientation>> vdot ]
@@ -26,7 +28,7 @@ M: separator loc>value
 
 : <separator> ( model -- gadget ) separator new-control ;
 
-M: separator pref-dim* find-separation dup 2array ;
+M: separator pref-dim* find-separation square ;
 DEFER: wrapper-drag-ended
 M: separator drag-ended parent>> wrapper-drag-ended ;
 
@@ -44,30 +46,58 @@ TUPLE: slide-wrapper < pack timescale duration-model ;
 
 M: slide-wrapper model-changed ( model gadget -- ) nip relayout ;
 
-M: slide-wrapper focusable-child* ( gadget -- gadget )
-    gadget-child ;
+M: slide-wrapper focusable-child* ( gadget -- gadget ) drop t ;
+    ! gadget-child ;
 
 <PRIVATE
-: wrapper-offset ( wrapper -- n )
-    parent>> separation>> 2 * ;
+! : wrapper-offset ( wrapper -- n )
+!     find-separation 2 * ;
 
-: slide-wrapper-sizes ( gadget -- seq )
+: slide-wrapper-size ( gadget -- n )
     {
         [ control-value 0 max ]
         [ timescale>> * ]
-        [ wrapper-offset + ]
-        [ find-separation ]
-    } cleave
-    [ dup 2array ] bi@ 2array ;
+        [ find-separation + ]
+        ! [ wrapper-offset + ]
+        ! [ find-separation ]
+    } cleave ;
+    ! [ square ] bi@ 2array ;
+
+! : slide-wrapper-sizes ( gadget -- seq )
+!     {
+!         [ control-value 0 max ]
+!         [ timescale>> * ]
+!         [ wrapper-offset + ]
+!         [ find-separation ]
+!     } cleave
+!     [ square ] bi@ 2array ;
 PRIVATE>
 
-! TODO: Make pack-sizes generic
-M: slide-wrapper layout* dup slide-wrapper-sizes pack-layout ;
-M: slide-wrapper pref-dim*
+: drag-handle-dim ( slide-wrapper -- dim )
     [ dim>> ]
-    [ dup slide-wrapper-sizes pack-pref-dim ]
+    [ find-separation square ]
     [ orientation>> ] tri set-axis ;
 
+: drag-handle-loc ( slide-wrapper -- dim )
+    [ slide-wrapper-size ]
+    [ find-separation - square { 0 0 } swap ]
+    [ orientation>> ] tri set-axis ;
+
+: layout-drag-handle ( slide-wrapper -- )
+    [ children>> second ]
+    [ drag-handle-dim >>dim ]
+    [ drag-handle-loc >>loc ] tri drop ;
+
+M: slide-wrapper layout*
+    [ pref-dim ]
+    [ gadget-child dim<< ]
+    [ layout-drag-handle ] tri ;
+    ! dup slide-wrapper-sizes pack-layout ;
+
+M: slide-wrapper pref-dim*
+    [ dim>> ]
+    [ slide-wrapper-size square ]
+    [ orientation>> ] tri set-axis ;
 
 : wrapper-drag-ended ( value gadget -- )
     [ 0 max seconds ] [ duration-model>> set-model ] bi* ;
