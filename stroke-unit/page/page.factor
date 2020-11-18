@@ -1,64 +1,15 @@
-USING: accessors animators arrays assocs calendar colors.constants combinators
-formatting grouping hashtables.identity images.viewer images.viewer.private
-kernel locals math math.order math.rectangles math.vectors memoize models
-models.arrow models.arrow.smart models.range namespaces opengl.textures
-sequences sets stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.models.clip-display stroke-unit.util ui.gadgets ui.gadgets.labels
-ui.gadgets.packs ui.gadgets.private ui.gadgets.scrollers ui.gadgets.sliders
-ui.gadgets.timeline ui.gadgets.tracks ui.gadgets.wrappers.rect-wrappers
-ui.gestures ui.images ui.pens.solid ui.render vectors ;
+USING: accessors animators arrays audio.engine calendar combinators fry grouping
+kernel locals math math.order models models.arrow models.arrow.smart
+models.selection namespaces prettyprint sequences stroke-unit.clip-renderer
+stroke-unit.clips stroke-unit.models.clip-display
+stroke-unit.models.page-parameters stroke-unit.page.canvas
+stroke-unit.page.clip-timeline stroke-unit.page.syntax stroke-unit.util timers
+ui.gadgets ui.gadgets.labels ui.gadgets.scrollers ui.gadgets.sliders
+ui.gadgets.timeline ui.gadgets.tracks ui.gestures vectors ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
 
-SYMBOL: preview-stroke-speed
-preview-stroke-speed [ 70 <model> ] initialize
-
-! * Cobbling together an image sequence viewer using models
-! TODO: memoize this on a page cache
-: scaled-clip-frames ( clip scale -- seq )
-    scale-factor [ render-clip-frames ] with-variable ;
-
-: <clip-preview-frames--> ( clip-model scale-model -- image-seq-model )
-    preview-stroke-speed get [ stroke-speed [ scaled-clip-frames ] with-variable ]
-    <?smart-arrow> ;
-
-: <clip-rect--> ( clip-model scale-model -- rect-model )
-    [ [ clip-rect ] dip rect-scale ] <?smart-arrow> ;
-
-! Convention: times in seconds, durations in durations
-: (clip-position) ( time start-time duration -- position )
-    duration>seconds [ - ] dip / 0 1 clamp ;
-
-: <clip-position--> ( time-model start-time-model duration-model -- position-model )
-    [ (clip-position) ] <?smart-arrow> ;
-
-: <frame-select--> ( image-seq-model time-model start-time-model duration-model -- element-model )
-    <clip-position--> [ swap float-nth ] <smart-arrow> ;
-
-! All slots models
-TUPLE: page-parameters current-time draw-scale timescale ;
-: <page-parameters> ( -- obj )
-    0 <model> 1 <model> 10 <model> page-parameters boa ;
-
-: recompute-page-duration ( clip-diplays -- seconds )
-    last [ start-time>> compute-model ]
-    [ draw-duration>> compute-model duration>seconds ] bi + ;
-    ! [ draw-duration>> compute-model duration>seconds ]
-    ! map-sum ;
-
-: <range-page-parameters> ( clip-displays -- range-model parameters )
-    recompute-page-duration [ 0 0 0 ] dip 0 <range>
-    dup range-model 1 <model> 10 <model> page-parameters boa ;
-
-: <clip-display-frames--> ( page-parameters clip-display -- image-seq-model )
-    [ draw-scale>> ] [ clip>> ] bi* swap <clip-preview-frames--> ;
-
-: <clip-view> ( page-parameters clip-display -- rect-model gadget )
-    [ [ draw-scale>> ] [ clip>> ] bi* swap <clip-rect--> ]
-    [ <clip-display-frames--> ]
-    [ [ current-time>> ] [ [ start-time>> ] [ draw-duration>> ] bi ] bi* ]
-    2tri <frame-select--> <image-control> ;
 
 ! Initial, assume default stroke speed, return sequence of clip-display models
 : initialize-clips ( clips -- seq )
@@ -66,227 +17,127 @@ TUPLE: page-parameters current-time draw-scale timescale ;
     [ <clip-display> ] curry map >vector
     dup 2 <clumps> [ first2 connect-clip-displays ] each ;
 
-! Model: sequence of clip-displays
-TUPLE: page-canvas < gadget parameters ;
-M: page-canvas pref-dim*
-    { 0 0 } swap [ rect-extent nip vmax ] each-child ;
-
-! Cache preview and view gadgets
-SYMBOL: clip-view-cache
-clip-view-cache [ IH{ } clone ] initialize
-
-: <positioned-clip-view> ( page-parameters clip-display -- gadget )
-    <clip-view> <rect-wrapper> ;
-
-:: find-clip-view ( page-parameters clip-display -- gadget )
-    clip-display clip-view-cache get
-    [ [ page-parameters ] dip <positioned-clip-view> ] cache ;
-
-: synchronize-views ( gadget clip-displays -- )
-    [ clip>> compute-model empty-clip? ] reject
-    over [ clear-gadget ] [ parameters>> ] bi
-    swap [ find-clip-view ] with map add-gadgets drop ;
-
-M: page-canvas model-changed
-    swap value>> [ synchronize-views ] keepd relayout ;
-
-! : init-page-gadgets ( page-canvas -- )
-!     dup [ parameters>> ] [ clip-displays>> ] bi
-!     [ <clip-view> <rect-wrapper> ] with map
-!     add-gadgets drop ;
-
-: <page-canvas> ( page-parameters clip-displays -- gadget )
-    page-canvas new swap >>model
-    swap >>parameters ;
-    ! dup init-page-gadgets ;
-
-! * Viewer, includes canvas and controls
 : <page-slider> ( range-model -- gadget )
     horizontal <slider> fps get recip >>line ;
 
-! * Image-control that keeps aspect ratio and displays other stuff for use in timeline
-TUPLE: clip-timeline-preview < image-control clip-display ;
-<PRIVATE
-: adjust-image-dim ( pref-dim image-dim -- dim )
-    [ [ [ first ] bi@ / ] [ [ second ] bi@ / ] 2bi
-      min ] [ n*v ] bi ;
-PRIVATE>
-M: clip-timeline-preview draw-gadget*
-    dup image>>
-    [ [ [ image-gadget-texture ] [ dim>> ] bi ]
-      [ image-dim adjust-image-dim ] bi*
-      swap draw-scaled-texture ]
-    [ drop ] if* ;
-
-SYMBOL: focused-clip-index
-MEMO: preview-pen ( -- pen )
-    COLOR: red <solid> ;
-
-DEFER: set-focus-index
-: preview-gain-focus ( gadget -- )
-    [ preview-pen >>boundary relayout-1 ]
-    [ dup clip-display>> set-focus-index ]
-    [ [ dim>> { 0 0 } swap <rect> ] keep scroll>rect ]
-    tri ;
-
-: preview-lose-focus ( gadget -- )
-    f >>boundary relayout-1 ;
-
-: <preview-position--> ( current-time clip-display -- model )
-    [ start-time>> ] [ draw-duration>> ] bi
-    [ duration>seconds [ - ] dip /
-      dup 0 1 between? [ drop f ] unless
-    ] <?smart-arrow> ;
-
-! Model: preview-position
-TUPLE: preview-cursor < gadget ;
-: cursor-rect ( gadget position -- rect )
-    [ parent>> ] dip
-    [ [ dim>> first ] dip * 0 2array ]
-    [ drop dim>> second 1 swap 2array ] 2bi <rect> ; inline
-
-M: preview-cursor model-changed
-    [ swap value>>
-      [ [ show-gadget ] [ hide-gadget ] if ]
-      [ [ dupd cursor-rect rect-bounds [ >>loc ] [ >>dim ] bi* drop ] [ drop ] if* ] 2bi ]
-    keep parent>> relayout-1 ;
-
-: <preview-cursor> ( current-time clip-display -- gadget )
-    <preview-position--> preview-cursor new swap >>model
-    COLOR: blue <solid> >>interior ;
-
-clip-timeline-preview H{
-    { gain-focus [ preview-gain-focus ] }
-    { lose-focus [ preview-lose-focus ] }
-    { T{ button-down } [ request-focus ] }
-} set-gestures
-
-! ** Clip preview gadgets in the timeline
-: <clip-parameter-string--> ( clip-display -- str )
-    [ start-time>> ]
-    ! [ draw-duration>> ]
-    [ stroke-speed>> ] bi
-    [ "%.1fs\n%.1fpt/s" sprintf ] <?smart-arrow> ;
-
-GENERIC: <clip-preview-image> ( model clip -- gadget )
-
-M: stroke-unit.clips:clip <clip-preview-image>
-    drop [ clip-image ] <arrow> clip-timeline-preview new-image-gadget* ;
-MEMO: <empty-image> ( -- image ) { { 1 } } matrix>image ;
-M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new-image-gadget* ;
-
-: <clip-timeline-preview> ( current-time clip-display -- gadget )
-    {
-        [ clip>> dup compute-model <clip-preview-image> ]
-        [ >>clip-display ]
-        [ <clip-parameter-string--> <label-control> add-gadget ]
-        ! [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
-        [ swapd <preview-cursor> add-gadget ]
-    } cleave ;
-
-! * Editor, includes editable timeline
-
-! ** Clip Preview Timeline
-
-! Model: sequence of clip-displays
-TUPLE: clip-timeline < timeline ;
-
-: focus-clip-index ( timeline i -- )
-    swap children>> ?nth [ request-focus ] when* ;
-
-: when-focus ( quot: ( index -- ) -- )
-    focused-clip-index get 0 or swap call ; inline
-
-: timeline-focus-left ( timeline -- ) [ swap 1 - focus-clip-index ] curry when-focus ;
-
-: timeline-focus-right ( timeline -- ) [ swap 1 + focus-clip-index ] curry when-focus ;
-
-SYMBOL: clip-preview-cache
-clip-preview-cache [ IH{ } clone ] initialize
-
-:: find-timeline-preview ( page-parameters clip-display -- gadget )
-    clip-display clip-preview-cache get
-    [ [ page-parameters current-time>> ] dip <clip-timeline-preview> ] cache ;
-
-! : changed-clip-displays ( new-clip-displays children -- added removed )
-!     [ clip-display>> ] map
-!     [ diff members ]
-!     [ swap diff members ] 2bi ;
-
-! : add-gadgets-lazy ( parent childen -- parent )
-!     not-in-layout over [ (add-gadget) ] curry each ;
-
-! :: synchronize-previews ( gadget clip-displays -- )
-!     clip-displays gadget children>> changed-clip-displays :> ( added removed )
-!     gadget children>> [ dup removed member? [ unparent ] [ drop ] if ] each
-!     gadget parent>> page-parameters>> added [ find-clip-view ] with map
-!     gadget swap add-gadgets-lazy
-!     ! This is the dangerous part: we assume that all children are now grafted
-!     ! and set-equivalent to the clip-displays.
-!     clip-view-cache get clip-displays [ swap at ] with map >vector >>children drop ;
-DEFER: find-page-parameters
-: synchronize-previews ( gadget clip-displays -- )
-    over [ clear-gadget ] [ find-page-parameters ] bi
-    swap [ [ find-timeline-preview ] [ draw-duration>> ] bi timeline-add ] with each drop ;
-
-M: clip-timeline model-changed
-    swap value>> [ synchronize-previews ] keepd relayout ;
-
-clip-timeline H{
-    { T{ key-down f f "h" } [ timeline-focus-left ] }
-    { T{ key-down f f "l" } [ timeline-focus-right ] }
-} set-gestures
-
-:: <page-timeline> ( clip-displays -- gadget )
-    5 10 horizontal clip-timeline new-timeline
-    clip-displays >>model ;
+! * Main editor gadget
 
 ! clip-displays is a model
-TUPLE: page-editor < track page-parameters clip-displays timescale-observer animator ;
+TUPLE: page-editor < track
+    page-parameters clip-displays timescale-observer
+    animator playback index kill-stack ;
 
-:: <page-editor> ( clip-displays -- gadget )
+:: <page-editor> ( clips -- gadget )
+    clips initialize-clips :> clip-displays
     vertical page-editor new-track
     clip-displays <range-page-parameters> :> ( range-model page-parameters )
     fps get recip [ seconds ] keep range-model <range-animator> >>animator
+    V{ } clone >>kill-stack
+    0 <model> dup :> index-model >>index
+    ! 0 <model> >>current-index
     clip-displays <model> [ >>clip-displays ] keep
+    ! [ <selection> >>selection ] keep
     [ page-parameters swap <page-canvas> 0.85 track-add ]
     [ <page-timeline> <scroller> 0.15 track-add ] bi
     range-model <page-slider> f track-add
+    index-model [ unparse ] <arrow> <label-control> f track-add
     page-parameters >>page-parameters ;
 
 : canvas-gadget ( editor -- gadget ) children>> first ;
 : timeline-gadget ( editor -- gadget ) children>> second viewport>> gadget-child ;
 
+! May not change if only index changes
+! : <index-change--> ( clip-displays-model index-model -- model )
+!     [ [ ] <?arrow> ] bi@ [ clamp-index ] <smart-arrow> ;
+
+! :: <focus-index--> ( editor clip-displays-model index-model -- model )
+!     editor timeline-gadget :> timeline
+!     clip-displays-model index-model <index-change--> [ timeline swap [ focus-clip-index ] keep ]
+!     <arrow> ;
+
+    ! [ ]
+    ! ! editor timeline-gadget :> timeline
+    ! ! index-model [ ] <?arrow> clip-displays-model [ ] <?arrow>
+    ! ! [| i s | timeline i focus-clip-index i ] <smart-arrow> ;
+    ! [ [ ] <?arrow> ] bi@ rot timeline-gadget [ nip swap [ focus-clip-index ] keep ] curry
+    ! <smart-arrow> ;
+
 M: page-editor graft*
     { [ call-next-method ]
       [ page-parameters>> timescale>> [ [ set-timescale ] keepd ] ]
       [ timeline-gadget swap curry <arrow> [ activate-model ] keep ]
-      [ timescale-observer<< ] } cleave ;
+      [ timescale-observer<< ]
 
-M: page-editor ungraft*
-    [ timescale-observer>> deactivate-model ]
-    [ call-next-method ] bi ;
+      ! [ dup [ clip-displays>> ] [ index>> ] bi <focus-index--> [ activate-model ] keep ]
+      ! [ index-observer<< ]
+
+      ! [ index>> [ ] <?arrow> [ [ swap focus-clip-index ] keepd ] ]
+      ! [ timeline-gadget swap curry <arrow> [ activate-model ] keep ]
+      ! [ index-observer<< ]
+    } cleave ;
 
 M: page-editor focusable-child* timeline-gadget ;
 
 : find-page-parameters ( gadget -- paramters )
     [ page-editor? ] find-parent dup [ page-parameters>> ] when ;
 
-: set-focus-index ( gadget clip-display -- )
-    swap [ page-editor? ] find-parent
-    [ clip-displays>> compute-model index focused-clip-index set ]
-    [ drop ] if* ;
-
-: clamp-index ( seq i -- i )
-    swap length 1 - 0 swap clamp ;
+: ensure-index ( editor -- index )
+    [ clip-displays>> compute-model ]
+    [ index>> compute-model clamp-index ]
+    [ [ index>> set-model ] keepd ] tri ;
 
 : editor-refocus ( editor -- )
-    dup clip-displays>> compute-model focused-clip-index get clamp-index
-    [ timeline-gadget ] dip focus-clip-index ;
+    [ ensure-index ]
+    [ timeline-gadget swap focus-clip-index ] bi ;
+
+M: page-editor handles-selection? drop t ;
+M: page-editor handle-selection index>> set-model ;
+
+! : find-selection ( gadget -- model )
+!     [ page-editor? ] find-parent dup [ selection>> ] when ;
+
+! : set-focus ( gadget clip-display -- )
+!     [ find-selection ] dip select-item ;
+    ! gadget [ page-editor? ] find-parent clip-displays>> compute-model
+    ! seq index gadget find-page-parameters focused-index>> set-model ;
+    ! swap [ page-editor? ] find-parent
+    ! [ clip-displays>> compute-model index focused-clip-index set ]
+    ! [ drop ] if* ;
+
+
+    ! dup clip-displays>> compute-model focused-clip-index get clamp-index
+    ! [ timeline-gadget ] dip focus-clip-index ;
+
+! ** Audio playback scheduling
+! return a sequence of { delay clip/f } pairs
+: clip-playback-schedule ( current-time clip-displays -- seq )
+    [ [ start-time>> ] [ clip>> ] bi [ compute-model ] bi@
+      compute-audio-clip
+      [ [| delay clip |
+         [ clip play-clip ] delay seconds f <timer>
+        ] keep 2array ]
+      [ drop f ] if*
+    ] with map sift ;
+
+: editor-stop-playback ( gadget -- )
+    [ [ first2
+      [ stop-timer ] [ stop-clip ] bi*
+      ] each f ] change-playback drop ;
+
+: editor-prepare-playback ( gadget -- )
+    dup
+    [ page-parameters>> current-time>> compute-model ]
+    [ clip-displays>> compute-model ] bi clip-playback-schedule
+    >>playback drop ;
+
+: editor-start-schedule ( gadget -- )
+    playback>> [ first start-timer ] each ;
+
+: editor-start-playback ( gadget -- )
+    [ editor-prepare-playback ]
+    [ editor-start-schedule ] bi ;
 
 ! ** Manipulating the clip-display model value
-SYMBOL: kill-stack
-kill-stack [ V{ } clone ] initialize
 
 ! Following things need to be done:
 ! 1. Connect the predecessor and the successor
@@ -309,11 +160,14 @@ kill-stack [ V{ } clone ] initialize
       connect-clip-displays  ]
     [ drop ] if* ;
 
-: kill-nth-clip-display ( clip-displays index -- seq )
-    swap [ nth kill-stack get push ] [ remove-nth ] 2bi ;
+! : kill-nth-clip-display ( clip-displays index -- seq )
+!     swap [ nth kill-stack get push ] [ remove-nth ] 2bi ;
 
-: delete-nth-clip-display ( clip-displays index -- seq display )
-    kill-nth-clip-display kill-stack get pop ;
+: delete-nth-clip-display ( seq index -- seq display )
+    swap [ nth ] [ remove-nth ] 2bi swap ;
+
+    ! [  ]
+    ! kill-nth-clip-display kill-stack get pop ;
 
 ! before manipulating the sequence
 : connect-insert-before ( clip-displays index clip-display -- )
@@ -333,28 +187,45 @@ kill-stack [ V{ } clone ] initialize
     3dup connect-insert-after
     [ 1 + ] dip spin insert-nth ;
 
-: <split-clip-display> ( clip-display position -- obj1 obj2 )
-    [ [ clip>> compute-model ] dip clip-split-at ]
-    [ drop stroke-speed>> compute-model ] 2bi
-    [ <clip-display> ] curry bi@ ;
+:: <split-clip-display> ( clip-display position -- obj1 obj2 )
+    clip-display clip>> compute-model :> clip
+    clip-display stroke-speed>> compute-model :> speed
+    speed stroke-speed [ clip position clip-split-at ] with-variable
+    [ speed <clip-display> ] bi@ ;
+    ! [ [ clip>> compute-model ] dip clip-split-at ]
+    ! [ drop stroke-speed>> compute-model ] 2bi
+    ! [ <clip-display> ] curry bi@ ;
 
 ! ** Doing that in editor context
 
-! TODO: use combinator
-: editor-kill-clip ( gadget index -- )
-    over clip-displays>> compute-model
-    2dup swap connect-neighbours
-    swap kill-nth-clip-display swap clip-displays>> set-model ;
+: selected-clip-index ( gadget -- index )
+    index>> compute-model ;
+    ! compute-model ;
+    ! find-selection selected-index ;
+
+! ! TODO: use combinator
+! : editor-kill-clip ( gadget index -- )
+!     over clip-displays>> compute-model
+!     2dup swap connect-neighbours
+!     swap kill-nth-clip-display swap clip-displays>> set-model ;
 
 :: change-clip-displays ( gadget quot: ( ... value -- ... new-value/f ) -- gadget )
     gadget clip-displays>> dup :> model compute-model
     quot call [ model set-model ] when* gadget ; inline
 
 : change-clip-displays-focused ( gadget quot: ( ...value index -- ... new-value ) -- gadget )
-    [ focused-clip-index get ] dip curry change-clip-displays ; inline
+    [ dup selected-clip-index ] dip curry change-clip-displays ; inline
 
-:: editor-yank-before ( gadget -- )
-    kill-stack get
+:: editor-kill-clip ( gadget index -- )
+    gadget [
+            dup index connect-neighbours
+            index over nth gadget kill-stack>> push
+            index swap remove-nth
+            ! dup index swap [ nth kill-stack get push ] [ remove-nth ] 2bi
+    ] change-clip-displays drop ;
+
+E:: editor-yank-before ( gadget -- )
+    gadget kill-stack>>
     [
         pop :> to-insert
         gadget [
@@ -363,7 +234,7 @@ kill-stack [ V{ } clone ] initialize
     ] unless-empty ;
 
 :: editor-yank-after ( gadget -- )
-    kill-stack get
+    gadget kill-stack>>
     [
         pop :> to-insert
         gadget [
@@ -372,28 +243,43 @@ kill-stack [ V{ } clone ] initialize
     ] unless-empty ;
 
 : editor-kill-focused ( gadget -- )
-    [ focused-clip-index get editor-kill-clip ]
-    [ editor-refocus ] bi ;
+    dup selected-clip-index editor-kill-clip  ;
+    ! [ editor-refocus ] bi ;
 
 : <merged-clip-display> ( d1 d2 -- d )
-    [ [ clip>> compute-model ] bi@ clip-merge ] keepd
-    stroke-speed>> value>> [ stroke-speed get ] unless* <clip-display> ;
+    [ [ clip>> compute-model ] bi@ clip-merge ]
+    [ [ draw-duration>> compute-model ] bi@ time+ ] 2bi
+    <duration-clip-display> ;
+
+:: replace-nth-clip ( seq n clip -- seq )
+    n seq nth prev>> compute-model :> prev
+    n 1 + seq ?nth :> next
+    prev clip connect-clip-displays
+    clip next [ connect-clip-displays ] [ drop ] if*
+    clip n seq set-nth
+    seq ;
 
 : editor-merge-left ( gadget -- )
     [| seq i |
-     i 1 - seq nth [
+     i 1 - seq ?nth [
          seq i delete-nth-clip-display :> this
-         i 1 - delete-nth-clip-display :> prev
-         i 2 - prev this <merged-clip-display> insert-clip-after
+         i 1 - over nth :> prev
+         prev this <merged-clip-display> :> new
+         i 1 - new replace-nth-clip
      ] [ f ] if
-    ] change-clip-displays-focused editor-refocus ;
+    ] change-clip-displays-focused drop ;
 
-: editor-move ( gadget offset -- )
+E: editor-move ( gadget offset -- )
     [ drop ]
-    [ [ timeline-gadget ] dip focused-clip-index get + focus-clip-index ]
-    if-zero ;
+    [ swap [ selected-clip-index + ] [ index>> set-model ] bi ] if-zero ;
+    ! offset zero?
+    ! [ gadget selected-clip-index offset + gadget index>> set-model ] unless ;
+    ! [ swap  ]
+    ! [ drop ]
+    ! [ [ [ timeline-gadget ] [ selected-clip-index ] bi ] dip + focus-clip-index ]
+    ! if-zero ;
 
-: editor-change-timescale ( gadget factor -- )
+E: editor-change-timescale ( gadget factor -- )
     over page-parameters>> timescale>> compute-model *
     swap page-parameters>> timescale>> set-model ;
 
@@ -402,28 +288,38 @@ kill-stack [ V{ } clone ] initialize
     [ start-time>> ] [ draw-duration>> ] bi [ compute-model ] bi@
     (clip-position) ;
 
-: editor-focused-clip-position ( gadget -- position )
-    dup clip-displays>> compute-model focused-clip-index get
-    nth-clip-display-position ;
+: selected-clip-position ( gadget -- position )
+    dup [ clip-displays>> compute-model ] [ selected-clip-index ] bi nth-clip-display-position ;
 
 : editor-split-focused-clip ( gadget -- )
     {
-        [ editor-focused-clip-position ]
-        [ editor-kill-focused
-          kill-stack get pop swap <split-clip-display> [ kill-stack get push ] bi@ ]
+        [ selected-clip-position ]
+        [ editor-kill-focused ]
+        [ kill-stack>> pop swap <split-clip-display> ]
+        [ kill-stack>> [ push ] curry bi@ ]
         [ -1 editor-move ]
-        [ editor-yank-before ]
-        [ editor-yank-before ]
+        [ editor-yank-after ]
+        [ editor-yank-after ]
     } cleave ;
 
 : editor-toggle-playback ( gadget -- )
-    animator>> toggle-animation ;
+    [ animator>> toggle-animation ]
+    [ dup playback>>
+      [ editor-stop-playback ]
+      [ editor-start-playback ] if
+    ] bi ;
 
 : get-focused-clip ( gadget -- clip-display/f )
-    clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
+    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
+    ! find-selection selected-item ;
+    ! clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
 
 : editor-wind-to-focused ( gadget -- )
     [ get-focused-clip start-time>> compute-model ]
+    [ page-parameters>> current-time>> set-model ] bi ;
+
+: editor-wind-to-focused-end ( gadget -- )
+    [ get-focused-clip [ start-time>> compute-model ] [ draw-duration>> compute-model duration>seconds ] bi + ]
     [ page-parameters>> current-time>> set-model ] bi ;
 
 : editor-wind-by ( gadget frames -- )
@@ -431,9 +327,30 @@ kill-stack [ V{ } clone ] initialize
     swap page-parameters>> current-time>> [ compute-model + ] [ set-model ] bi ;
 
 : editor-insert-pause ( gadget duration -- )
-    <pause-display> kill-stack get push editor-yank-before ;
+    <pause-display> over kill-stack>> push editor-yank-before ;
+
+M: page-editor ungraft*
+    { [ timescale-observer>> deactivate-model ]
+      ! [ index-observer>> deactivate-model ]
+      [ editor-stop-playback ]
+      [ call-next-method ]
+    } cleave ;
+
+! : clip>preview ( editor clip-display -- preview-gadget/f )
+!     over clip-displays>> index
+!     [ swap timeline-gadget children>> nth ]
+!     [ 2drop f ] if* ;
+
+! * Editor Keybindings
+
+! clip-timeline H{
+!     { T{ key-down f f "h" } [ timeline-focus-left ] }
+!     { T{ key-down f f "l" } [ timeline-focus-right ] }
+! } set-gestures
 
 page-editor H{
+    { T{ key-down f f "h" } [ -1 editor-move ] }
+    { T{ key-down f f "l" } [ 1 editor-move ] }
     { T{ key-down f f "x" } [ editor-kill-focused ] }
     { T{ key-down f f "P" } [ editor-yank-before ] }
     { T{ key-down f f "p" } [ editor-yank-after ] }
@@ -442,10 +359,12 @@ page-editor H{
     { T{ key-down f f "-" } [ 1/2 editor-change-timescale ] }
     { T{ key-down f f "=" } [ 2 editor-change-timescale ] }
     { T{ key-down f f " " } [ editor-toggle-playback ] }
-    { T{ key-down f { C+ } "l" } [ editor-wind-to-focused ] }
-    { T{ key-down f f "[" } [ -1 editor-wind-by ] }
-    { T{ key-down f f "]" } [ 1 editor-wind-by ] }
-    { T{ key-down f f "{" } [ -10 editor-wind-by ] }
-    { T{ key-down f f "}" } [ 10 editor-wind-by ] }
+    { T{ key-down f { C+ } "h" } [ editor-wind-to-focused ] }
+    { T{ key-down f { C+ } "l" } [ editor-wind-to-focused-end ] }
+    { T{ key-down f f "[" } [ -10 editor-wind-by ] }
+    { T{ key-down f f "]" } [ 10 editor-wind-by ] }
+    { T{ key-down f f "{" } [ -1 editor-wind-by ] }
+    { T{ key-down f f "}" } [ 1 editor-wind-by ] }
     { T{ key-down f f "n" } [ 10 seconds editor-insert-pause ] }
 } set-gestures
+

@@ -41,7 +41,12 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
     [ surface-dim ] tri <bitmap-image>
     BGRA >>component-order ubyte-components >>component-type ;
 
-: add-frame ( surface -- ) surface>image , ;
+SYMBOL: stroke-num
+SYMBOL: stroke-nums
+
+: add-frame ( surface -- ) surface>image ,
+    ! stroke-num get stroke-nums get push
+    ;
 
 :: render-stroke-frames ( stroke surface -- )
     stroke stroke>color/seg :> ( color segments )
@@ -73,9 +78,11 @@ SYMBOL: last-stroke
 
 ! Return a sequence of images that are the clip's frames
 ! TODO: memo-cache stroke-segments here
-:: render-clip-frames ( clip -- seq )
+:: render-clip-frames ( clip -- frames )
     clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
     clip clip-strokes :> strokes
+    ! V{ } clone stroke-nums set
+    ! 0 stroke-num set
     [ dim [| surface |
            0 segment-timer set
            last-stroke off
@@ -85,6 +92,7 @@ SYMBOL: last-stroke
                [ add-inter-stroke-pause ]
                [ surface render-stroke-frames ]
                [ last-stroke set ] tri
+               ! stroke-num inc
           ] each
       ] with-image-surface
     ] { } make ;
@@ -102,14 +110,14 @@ SYMBOL: last-stroke
 
 ! Calculate the index of the strokes which corresponds to the given time after
 ! clip start
-:: clip-time-stroke-index ( clip offset -- i )
-    0 :> time!
-    clip clip-strokes 2 <clumps>
-    [ first2 :> ( s1 s2 )
-      time offset >=
-      [ s1 ]
-      [
+! :: clip-time-stroke-index ( clip offset -- i )
+!     0 :> time!
+!     clip clip-strokes 2 <clumps>
+!     [ first2 :> ( s1 s2 )
+!       time offset >=
+!       [ s1 ]
+!       [
 
-      ]
+!       ]
 
-    ] find drop
+!     ] find drop

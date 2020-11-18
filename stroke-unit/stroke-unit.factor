@@ -1,4 +1,4 @@
-USING: accessors kernel stroke-unit.elements xml.traversal xopp.file ;
+USING: accessors kernel models sequences stroke-unit.elements xopp.file ;
 
 USE: stroke-unit.util
 USE: stroke-unit.clips
@@ -12,6 +12,6 @@ TUPLE: layer clips ;
 : load-xopp-file ( path -- xml )
     file>xopp ;
 
-: xopp-test ( -- xml clips )
-    "~/xournalpp/uebungen/1.3.xopp" load-xopp-file
-    dup analyze-clips ;
+: xopp-test ( --  clips editor )
+    "~/xournalpp/uebungen/2.1.xopp" load-xopp-file
+    pages first page-clips <page-editor> [ clip-displays>> compute-model ] keep ;

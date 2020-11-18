@@ -1,11 +1,7 @@
-USING: accessors arrays assocs audio.player-gadget binary-search calendar
-combinators controls controls.animation grouping images.sequence-viewer
-images.viewer io.pathnames kernel locals math math.order math.rectangles models
-models.arrow models.arrow.smart namespaces sequences sequences.mapped
-sequences.zipped stroke-unit.clip-renderer stroke-unit.elements
-stroke-unit.strokes stroke-unit.util timers ui.gadgets ui.gadgets.books
-ui.gadgets.borders ui.gadgets.buttons ui.gadgets.desks ui.gadgets.labels
-ui.gadgets.packs ui.gestures ui.pens.image xml.syntax ;
+USING: accessors binary-search calendar combinators.short-circuit grouping
+io.pathnames kernel locals math math.order namespaces sequences sequences.mapped
+stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
+stroke-unit.util xml.syntax ;
 
 IN: stroke-unit.clips
 
@@ -38,15 +34,22 @@ SINGLETON: +no-audio+
           [ <clip> current-clips get push ] if
       ] if
     ] if ;
+SYMBOL: load-max-clip-size
+load-max-clip-size [ 30 ] initialize
+
+: limit-current-clip ( -- )
+    current-clips get last elements>> length load-max-clip-size get >=
+    [ +no-audio+ <clip> current-clips get push ] when ;
 
 TAGS: change-clip ( elt -- )
 TAG: stroke change-clip stroke-audio update-current-clip ;
 TAG: image change-clip drop ;
 
-: analyze-clips ( xml -- clips )
-    [ pages [ layers [ strokes [
-                           [ change-clip ] [ current-clips get last elements>> push ] bi
-                       ] each ] each ] each
+: page-clips ( xml -- clips )
+    [ layers [ strokes [
+                   [ change-clip limit-current-clip ]
+                   [ current-clips get last elements>> push ] bi
+               ] each ] each
       current-clips get
     ] with-current-clips ;
 
@@ -66,11 +69,21 @@ TAG: image change-clip drop ;
 
 ! position is between 0.0 and 1.0
 ! TODO: candidate for caching if needed
-: clip-find-offset-stroke ( clip position -- stroke )
-    [ clip-strokes dup ] dip
-    over strokes-move-distance *
-    swap dup length <iota> [ 1 + head-slice strokes-move-distance ] with <map>
-    natural-search drop swap nth ;
+! : clip-find-offset-stroke ( clip position -- stroke )
+!     [ clip-strokes dup ] dip
+!     over strokes-move-distance *
+!     swap dup length <iota> [ 1 + head-slice strokes-move-distance ] with <map>
+!     natural-search drop swap nth ;
+
+:: clip-find-offset-stroke ( clip position -- stroke )
+    clip clip-strokes :> strokes
+    strokes strokes-move-distance position * :> target
+    strokes length
+    <iota> [ 1 + strokes swap head-slice strokes-move-distance target >= ] find
+    [ strokes nth ] [ drop strokes last ] if ;
+    ! [ [ f ] [ strokes nth ] if-zero ] [ drop f ] if*
+
+    ! [ n ] [ drop strokes last ] if* ;
 
 ! * Splitting
 
@@ -91,9 +104,9 @@ TAG: image change-clip drop ;
 
 ! * Audio
 
-: load-audio ( clip -- ? )
+: load-audio ( clip -- audio/f )
     dup audio>> [ nip ] [
-        dup audio-path>> dup empty? [ 2drop f ]
+        dup audio-path>> dup { [ +no-audio+? ] [ empty? ] } 1|| [ 2drop f ]
         [ get-current-audio-folder prepend-path ogg>audio
           >>audio audio>> ] if
     ] if* ;

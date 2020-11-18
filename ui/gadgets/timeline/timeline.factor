@@ -1,6 +1,7 @@
 USING: accessors arrays calendar colors.constants combinators controls kernel
-locals math math.order math.vectors models sequences stroke-unit.util ui.gadgets
-ui.gadgets.packs ui.gadgets.packs.private ui.gadgets.tracks ui.pens.solid ;
+locals math math.order math.vectors memoize models sequences stroke-unit.util
+ui.gadgets ui.gadgets.packs ui.gadgets.packs.private ui.gadgets.tracks
+ui.gestures ui.pens.solid ;
 
 IN: ui.gadgets.timeline
 
@@ -14,17 +15,24 @@ TUPLE: timeline < track
     ;
 
 TUPLE: separator < drag-control ;
-M: separator layout* COLOR: black 0.2 alpha-color <solid> >>interior drop ;
 <PRIVATE
+MEMO: separator-pen ( -- pen ) COLOR: black 0.15 alpha-color <solid> ;
+
 : find-separation ( gadget -- n )
-    [ timeline? ] find-parent separation>> ;
+    [ timeline? ] find-parent [ separation>> ] [ 1 ] if* ;
 
 : square ( x -- dim ) dup 2array ; inline
 PRIVATE>
+! M: separator layout* separator-pen ;
 M: separator loc>value
     [ parent>> orientation>> vdot ]
     [ parent>> timescale>> / ] bi
     ;
+
+separator H{
+    { mouse-enter [ separator-pen >>interior parent>> relayout-1 ] }
+    { mouse-leave [ f >>interior parent>> relayout-1 ] }
+} set-gestures
 
 : <separator> ( model -- gadget ) separator new-control ;
 
@@ -46,8 +54,7 @@ TUPLE: slide-wrapper < pack timescale duration-model ;
 
 M: slide-wrapper model-changed ( model gadget -- ) nip relayout ;
 
-M: slide-wrapper focusable-child* ( gadget -- gadget ) drop t ;
-    ! gadget-child ;
+M: slide-wrapper focusable-child* ( gadget -- gadget ) gadget-child ;
 
 <PRIVATE
 ! : wrapper-offset ( wrapper -- n )

@@ -5,7 +5,7 @@ stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util ui.gadgets
 ui.gadgets.books ui.gadgets.buttons ui.gadgets.desks ui.gadgets.labels
 ui.gadgets.packs ui.gestures ;
 
-IN: stroke-unit.editor.clip-editor 
+IN: stroke-unit.editor.clip-editor
 
 ! * Clip view gadget
 ! Strokes viewer, slider for progress, play button

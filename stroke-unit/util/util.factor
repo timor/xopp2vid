@@ -1,7 +1,9 @@
-USING: accessors alien audio audio.engine audio.vorbis byte-arrays byte-vectors
-cairo cairo-gadgets cairo.ffi calendar classes.struct combinators destructors
-fry images.memory.private io.backend kernel locals math math.functions
-namespaces sequences strings xml xml.data xml.traversal ;
+USING: accessors alien alien.data arrays audio audio.engine audio.vorbis
+byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar classes.struct
+colors columns combinators destructors endian fry grouping images
+images.memory.private io.backend kernel locals math math.functions math.order
+math.vectors namespaces sequences sequences.mapped strings threads xml xml.data
+xml.traversal ;
 
 IN: stroke-unit.util
 
@@ -119,7 +121,7 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     :> levels
     width <iota> [| x | x levels ?nth
                   [ height fg bg audio-image-column ]
-                  [ height bg bg-column ] if* ] map <flipped> concat
+                  [ height bg bg-column ] if* yield ] map <flipped> concat
     concat
     <image> swap >>bitmap width height 2array >>dim
     ubyte-components >>component-type
@@ -128,3 +130,6 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
 
 : alpha-color ( color alpha -- rgba )
     [ >rgba-components drop ] dip <rgba> ;
+
+: clamp-index ( seq i -- i )
+    swap length 1 - 0 swap clamp ;

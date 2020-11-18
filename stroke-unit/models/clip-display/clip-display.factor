@@ -38,7 +38,7 @@ no-predecessor-clip
     [ clip-draw-duration ] <smart-arrow> ;
 
 : <stroke-speed--> ( clip-model draw-duration-model -- stroke-speed-model )
-    [ [ clip-move-distance ] dip duration>seconds / ] <?smart-arrow> ;
+    [ [ clip-move-distance ] dip duration>seconds 0.001 max / ] <?smart-arrow> ;
 
 : compute-start-time ( prev-clip -- seconds )
     [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi duration>seconds + ]

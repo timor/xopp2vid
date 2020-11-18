@@ -7,13 +7,14 @@ sequences.zipped splitting ui.gadgets.desks xml.data xml.traversal ;
 IN: stroke-unit.strokes
 
 : string>numbers ( str -- seq )
-    " " split-slice [ string>number ] <map> ;
+    ! " " split-slice [ string>number ] <map> ;
+    " " split-slice [ string>number ] map ;
 
 : stroke-points ( stroke -- seq )
     children>string string>numbers 2 <groups> ;
 
 : stroke-segments ( stroke -- seq )
-    [ "width" attr string>numbers ] [ stroke-points 2 <clumps> ] bi <zipped> ; memo-scope
+    [ "width" attr string>numbers ] [ stroke-points 2 <clumps> ] bi <zipped> ; ! memo-scope
 
 : segment-length ( segment -- n )
     second first2 distance ; inline
@@ -37,7 +38,8 @@ IN: stroke-unit.strokes
     [ [ draw-segment ] each ] bi* ;
 
 : stroke-rect ( stroke -- rect )
-    stroke-segments [ second ] <map> concat rect-containing ; inline
+    ! stroke-segments [ second ] <map> concat rect-containing ; inline
+    stroke-segments [ second ] map concat rect-containing ; inline
 
 : strokes-rect ( strokes -- rect )
     [ stroke-rect ] [ rect-union ] map-reduce ;

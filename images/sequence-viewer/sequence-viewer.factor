@@ -51,6 +51,7 @@ IN: images.sequence-viewer
     dup <index-range> [ <item> ] keep ;
 
 TUPLE: image-player < pack animation ;
+! Model: Sequence of images
 ! M: image-player hide-controls children>> second hide-gadget ;
 ! M: image-player hide-controls children>> second show-gadget ;
 

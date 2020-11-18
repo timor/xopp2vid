@@ -1,7 +1,10 @@
-USING: accessors kernel sequences stroke-unit stroke-unit.page ui.gadgets ;
+USING: accessors kernel sequences stroke-unit stroke-unit.models.page-parameters
+stroke-unit.page ui ;
 IN: stroke-unit.page.tests
 
-: test-clips ( -- seq ) xopp-test nip 10 head ;
+: test-clips ( -- seq )
+    "~/xournalpp/uebungen/1.3.xopp" load-xopp-file
+    pages first page-clips 10 head ;
 
 : clip-view-test ( -- views parameters gadget time )
     test-clips initialize-clips
@@ -21,8 +24,8 @@ IN: stroke-unit.page.tests
 !     <page-timeline> ;
 
 : page-editor-test ( -- models gadget )
-    test-clips initialize-clips dup
-    <page-editor> ;
+    test-clips
+    <page-editor> [ clip-displays>> ] keep ;
 
 : test-editor ( -- models gadget )
     page-editor-test dup "foo" open-window ;
