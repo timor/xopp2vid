@@ -12,12 +12,6 @@ IN: stroke-unit.page.clip-timeline
 
 ! * Image-control that keeps aspect ratio and displays other stuff for use in timeline
 TUPLE: clip-timeline-preview < image-control clip-display ;
-<PRIVATE
-: 0/ ( x y -- z ) [ drop 0 ] [ / ] if-zero ;
-: adjust-image-dim ( pref-dim image-dim -- dim )
-    [ [ [ first ] bi@ 0/ ] [ [ second ] bi@ 0/ ] 2bi
-      min ] [ n*v ] bi ;
-PRIVATE>
 M: clip-timeline-preview draw-gadget*
     dup image>>
     [ [ [ image-gadget-texture ] [ dim>> ] bi ]
@@ -143,7 +137,7 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
     {
         [ clip>> dup compute-model <clip-preview-image> ]
         [ >>clip-display ]
-        [ <clip-parameter-string--> <label-control> add-gadget ]
+        ! [ <clip-parameter-string--> <label-control> add-gadget ]
         ! [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
         [ pick current-time>> swap <preview-cursor> add-gadget ]
         [ swapd [ timescale>> ] dip

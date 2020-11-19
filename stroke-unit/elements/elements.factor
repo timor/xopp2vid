@@ -8,3 +8,5 @@ IN: stroke-unit.elements
 : layers ( xml -- seq ) "layer" tags-named ;
 
 : pages ( xml -- seq ) "page" tags-named ;
+
+GENERIC: element-rect ( xml -- rect )

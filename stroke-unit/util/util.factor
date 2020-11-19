@@ -1,9 +1,10 @@
 USING: accessors alien alien.data arrays audio audio.engine audio.vorbis
 byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar classes.struct
-colors columns combinators destructors endian fry grouping images
-images.memory.private io.backend kernel locals math math.functions math.order
-math.vectors namespaces sequences sequences.mapped strings threads xml xml.data
-xml.traversal ;
+colors columns combinators combinators.short-circuit continuations destructors
+endian fry grouping images images.memory.private io.backend io.directories
+io.files io.files.info kernel locals math math.functions math.order math.vectors
+namespaces sequences sequences.mapped strings threads xml xml.data xml.traversal
+;
 
 IN: stroke-unit.util
 
@@ -133,3 +134,32 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
 
 : clamp-index ( seq i -- i )
     swap length 1 - 0 swap clamp ;
+
+: 0/ ( x y -- z ) [ drop 0 ] [ / ] if-zero ;
+
+: fit-to-scale ( pref-dim image-dim -- n )
+    [ [ first ] bi@ 0/ ] [ [ second ] bi@ 0/ ] 2bi
+    min ;
+
+: adjust-image-dim ( pref-dim image-dim -- dim )
+    [ fit-to-scale ] [ n*v ] bi ;
+
+: rm-r ( path -- )
+    dup file-info directory?
+    [ [ qualified-directory-files [ rm-r ] each ] [ delete-directory ] bi ]
+    [ delete-file ] if ;
+
+ERROR: not-an-empty-directory path ;
+: ensure-empty-path ( path -- path )
+    normalize-path dup dup exists?
+    [ dup { [ file-info directory? ] [ directory-files empty? ] } 1&&
+      [ drop ]
+      [
+          dup \ not-an-empty-directory boa { { "Overwrite Contents" t } } throw-restarts
+          [ [ rm-r ] [ make-directories ] bi ] [ drop ] if
+      ] if
+    ] [ make-directories ] if ;
+
+
+: timestamp>filename-component ( timestamp -- string )
+    [ { YYYY "-" MM "-" DD "-" hh "-" mm "-" ss } formatted ] with-string-writer ;

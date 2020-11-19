@@ -14,7 +14,7 @@ preview-stroke-speed [ 70 <model> ] initialize
 : scaled-clip-frames ( clip scale -- frames )
     scale-factor [ render-clip-frames ] with-variable ;
 
-: <clip-preview-frames/inds--> ( clip-model scale-model -- frames-model )
+: <clip-preview-frames--> ( clip-model scale-model -- frames-model )
     preview-stroke-speed get [ stroke-speed [ scaled-clip-frames ] with-variable ]
     <?smart-arrow> ;
 

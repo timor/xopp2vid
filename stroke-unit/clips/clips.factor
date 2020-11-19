@@ -27,7 +27,7 @@ SINGLETON: +no-audio+
     current-audio 2dup =
     [ 2drop ]
     [ +no-audio+?
-      [ current-clips get last audio-path<< ]
+      [ get-current-audio-folder prepend-path current-clips get last audio-path<< ]
       [ ! f
           dup f =
           [ drop ]
@@ -98,6 +98,28 @@ TAG: image change-clip drop ;
     over elements>> [ index ] keep swap cut-slice
     [ >>elements ] [ [ dup clone ] dip >>elements clear-clip-audio ] bi* ;
 
+: clip-can-split? ( clip -- ? )
+    elements>> length 2 >= ;
+
+: make-2-clips ( elts1 elts2 original -- clip1 clip2 )
+    [ clone swap >>elements clear-clip-audio ]
+    [ clone rot >>elements ] bi swap ;
+
+: clip-split-half ( clip -- clip-before clip-after )
+    [ elements>> dup length 2/ cut-slice ]
+    [ make-2-clips ] bi ;
+    ! tri swap ;
+
+: clip-divide-vertical ( clip -- clip-above clip-below )
+    [ clip-rect rect-center second ]
+    [ elements>> [ element-rect rect-center second < ] with partition ]
+    [ make-2-clips ] tri ;
+
+: clip-divide-horizontal ( clip -- clip-above clip-below )
+    [ clip-rect rect-center first ]
+    [ elements>> [ element-rect rect-center first < ] with partition ]
+    [ make-2-clips ] tri ;
+
 ! TODO: handle audio correctly
 : clip-merge ( clip1 clip2 -- clip )
     swap clone [ swap elements>> append ] change-elements ;
@@ -107,7 +129,7 @@ TAG: image change-clip drop ;
 : load-audio ( clip -- audio/f )
     dup audio>> [ nip ] [
         dup audio-path>> dup { [ +no-audio+? ] [ empty? ] } 1|| [ 2drop f ]
-        [ get-current-audio-folder prepend-path ogg>audio
+        [ ogg>audio
           >>audio audio>> ] if
     ] if* ;
 

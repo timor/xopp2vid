@@ -22,5 +22,3 @@ TUPLE: page-parameters current-time draw-scale timescale ;
     recompute-page-duration [ 0 0 0 ] dip 0 <range>
     dup range-model 1 <model> 10 <model> page-parameters boa ;
 
-! All args models
-: <clip-selection> ( clip-displays index -- clip-selection )

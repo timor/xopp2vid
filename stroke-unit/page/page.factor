@@ -1,21 +1,25 @@
 USING: accessors animators arrays audio.engine calendar combinators fry grouping
-kernel locals math math.order models models.arrow models.arrow.smart
-models.selection namespaces prettyprint sequences stroke-unit.clip-renderer
-stroke-unit.clips stroke-unit.models.clip-display
-stroke-unit.models.page-parameters stroke-unit.page.canvas
-stroke-unit.page.clip-timeline stroke-unit.page.syntax stroke-unit.util timers
-ui.gadgets ui.gadgets.labels ui.gadgets.scrollers ui.gadgets.sliders
-ui.gadgets.timeline ui.gadgets.tracks ui.gestures vectors ;
+io.encodings.binary io.files io.files.temp kernel locals math math.order models
+models.arrow models.arrow.smart models.selection namespaces prettyprint
+sequences serialize stroke-unit.clip-renderer stroke-unit.clips
+stroke-unit.models.clip-display stroke-unit.models.page-parameters
+stroke-unit.page.canvas stroke-unit.page.clip-timeline stroke-unit.page.syntax
+stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.packs
+ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
+ui.gestures vectors ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
 
 
 ! Initial, assume default stroke speed, return sequence of clip-display models
+: connect-all-displays ( seq -- seq )
+    dup 2 <clumps> [ first2 connect-clip-displays ] each ;
+
 : initialize-clips ( clips -- seq )
     stroke-speed get
     [ <clip-display> ] curry map >vector
-    dup 2 <clumps> [ first2 connect-clip-displays ] each ;
+    connect-all-displays ;
 
 : <page-slider> ( range-model -- gadget )
     horizontal <slider> fps get recip >>line ;
@@ -25,9 +29,9 @@ FROM: namespaces => set ;
 ! clip-displays is a model
 TUPLE: page-editor < track
     page-parameters clip-displays timescale-observer
-    animator playback index kill-stack ;
+    animator playback index kill-stack page filename ;
 
-:: <page-editor> ( clips -- gadget )
+:: <page-editor-from-clips> ( clips -- gadget )
     clips initialize-clips :> clip-displays
     vertical page-editor new-track
     clip-displays <range-page-parameters> :> ( range-model page-parameters )
@@ -40,8 +44,16 @@ TUPLE: page-editor < track
     [ page-parameters swap <page-canvas> 0.85 track-add ]
     [ <page-timeline> <scroller> 0.15 track-add ] bi
     range-model <page-slider> f track-add
-    index-model [ unparse ] <arrow> <label-control> f track-add
+    "stroke-unit-" temp-file now timestamp>filename-component append <model> dup :> filename-model
+    >>filename
+    <shelf>
+    filename-model <label-control> add-gadget
+    index-model [ unparse ] <arrow> <label-control> add-gadget
+    f track-add
     page-parameters >>page-parameters ;
+
+: <page-editor> ( page -- gadget )
+    dup page-clips <page-editor-from-clips> swap >>page ;
 
 : canvas-gadget ( editor -- gadget ) children>> first ;
 : timeline-gadget ( editor -- gadget ) children>> second viewport>> gadget-child ;
@@ -187,6 +199,10 @@ M: page-editor handle-selection index>> set-model ;
     3dup connect-insert-after
     [ 1 + ] dip spin insert-nth ;
 
+: make-2-clip-displays ( clip-display quot: ( clip -- clip1 clip2 ) -- obj1 obj2 )
+    [ [ clip>> compute-model ] dip call ] keepd
+    stroke-speed>> compute-model [ <clip-display> ] curry bi@ ; inline
+
 :: <split-clip-display> ( clip-display position -- obj1 obj2 )
     clip-display clip>> compute-model :> clip
     clip-display stroke-speed>> compute-model :> speed
@@ -195,6 +211,11 @@ M: page-editor handle-selection index>> set-model ;
     ! [ [ clip>> compute-model ] dip clip-split-at ]
     ! [ drop stroke-speed>> compute-model ] 2bi
     ! [ <clip-display> ] curry bi@ ;
+
+: <half-clip-display> ( clip-display -- d1 d2 )
+    [ clip>> compute-model clip-split-half ]
+    [ stroke-speed>> compute-model [ <clip-display> ] curry bi@ ] bi
+    ;
 
 ! ** Doing that in editor context
 
@@ -279,6 +300,12 @@ E: editor-move ( gadget offset -- )
     ! [ [ [ timeline-gadget ] [ selected-clip-index ] bi ] dip + focus-clip-index ]
     ! if-zero ;
 
+: get-focused-clip ( gadget -- clip-display/f )
+    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
+! find-selection selected-item ;
+! clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
+
+
 E: editor-change-timescale ( gadget factor -- )
     over page-parameters>> timescale>> compute-model *
     swap page-parameters>> timescale>> set-model ;
@@ -302,17 +329,58 @@ E: editor-change-timescale ( gadget factor -- )
         [ editor-yank-after ]
     } cleave ;
 
+: can-split-focused-clip? ( gadget -- ? )
+    get-focused-clip [ clip>> compute-model clip-can-split? ] [ f ] if* ;
+
+: kill-pop ( gadget -- clip )
+    [ editor-kill-focused ]
+    [ kill-stack>> pop ] bi ;
+
+: push-kill ( clip gadget -- )
+    kill-stack>> push ;
+
+: editor-half-focused-clip ( gadget -- )
+    dup can-split-focused-clip?
+    [ {
+        [ kill-pop <half-clip-display> ]
+        ! [ kill-stack>> pop <half-clip-display> ]
+        ! [ kill-stack>> [ push ] curry bi@ ]
+        [ [ push-kill ] curry bi@ ]
+        [ -1 editor-move ]
+        [ editor-yank-after ]
+        [ editor-yank-after ]
+    } cleave ] [ drop ] if ;
+
+:: editor-split-action ( gadget quot: ( clip -- clip1 clip2 ) -- )
+    gadget can-split-focused-clip?
+    [ gadget { [ kill-pop
+          quot make-2-clip-displays swap ]
+         [ [ push-kill ] curry bi@ ]
+         [ editor-yank-before ]
+         [ editor-yank-before ]
+       } cleave ] when ; inline
+
+: editor-divide-focused-clip-vertical ( gadget -- )
+    [ clip-divide-vertical ] editor-split-action ;
+
+: editor-divide-focused-clip-horizontal ( gadget -- )
+    [ clip-divide-horizontal ] editor-split-action ;
+
+! : editor-divide-focused-clip-vertical ( gadget -- )
+!     dup can-split-focused-clip?
+!     [ { [ kill-pop
+!           [ clip-divide-vertical ] make-2-clip-displays swap ]
+!         [ [ push-kill ] curry bi@ ]
+!         [ editor-yank-before ]
+!         [ editor-yank-before ]
+!       } cleave ]  [ drop ] if ;
+
 : editor-toggle-playback ( gadget -- )
     [ animator>> toggle-animation ]
     [ dup playback>>
       [ editor-stop-playback ]
       [ editor-start-playback ] if
     ] bi ;
-
-: get-focused-clip ( gadget -- clip-display/f )
-    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
-    ! find-selection selected-item ;
-    ! clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
 
 : editor-wind-to-focused ( gadget -- )
     [ get-focused-clip start-time>> compute-model ]
@@ -348,6 +416,46 @@ M: page-editor ungraft*
 !     { T{ key-down f f "l" } [ timeline-focus-right ] }
 ! } set-gestures
 
+: set-filename ( gadget path -- )
+    swap filename>> set-model ;
+
+: save-clips ( clip-displays filename --  )
+    binary [ [ [ clip>> ] [ draw-duration>> ] bi [ compute-model ] bi@ [ f >>audio ] dip 2array ] map serialize ] with-file-writer ;
+
+: editor-save-to ( gadget filename -- )
+    [ clip-displays>> compute-model ] dip save-clips ;
+
+: editor-save ( gadget -- )
+    dup filename>> compute-model editor-save-to ;
+
+: load-clip-displays ( filename -- clip-displays )
+    binary [ deserialize ] with-file-reader [ first2 <duration-clip-display> ] map
+    connect-all-displays ;
+
+SYMBOL: quicksave-path
+quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
+
+: editor-quicksave ( gadget --  )
+    quicksave-path get editor-save-to ;
+
+: editor-load ( gadget path -- )
+    2dup set-filename
+    load-clip-displays swap [ clip-displays>> set-model ] [ relayout ] bi ;
+
+: editor-quickload ( gadget -- )
+    quicksave-path get editor-load ;
+
+! Replace with something better
+: editor-update-range ( gadget -- )
+    [ clip-displays>> compute-model recompute-page-duration ]
+    [ children>> but-last-slice last model>> set-range-max-value ] bi ;
+
+: editor-update-display ( gadget -- )
+    [ editor-update-range ] [ relayout ] bi ;
+
+: render-page ( gadget path dim -- )
+    [ dup page>> ] 2dip render-page-editor-clips ;
+
 page-editor H{
     { T{ key-down f f "h" } [ -1 editor-move ] }
     { T{ key-down f f "l" } [ 1 editor-move ] }
@@ -355,16 +463,25 @@ page-editor H{
     { T{ key-down f f "P" } [ editor-yank-before ] }
     { T{ key-down f f "p" } [ editor-yank-after ] }
     { T{ key-down f f "m" } [ editor-merge-left ] }
-    { T{ key-down f f "s" } [ editor-split-focused-clip ] }
+    { T{ key-down f f "s" } [ editor-half-focused-clip ] }
+    { T{ key-down f f "S" } [ editor-split-focused-clip ] }
+    { T{ key-down f f "d" } [ editor-divide-focused-clip-vertical ] }
+    { T{ key-down f f "D" } [ editor-divide-focused-clip-horizontal ] }
     { T{ key-down f f "-" } [ 1/2 editor-change-timescale ] }
     { T{ key-down f f "=" } [ 2 editor-change-timescale ] }
     { T{ key-down f f " " } [ editor-toggle-playback ] }
     { T{ key-down f { C+ } "h" } [ editor-wind-to-focused ] }
     { T{ key-down f { C+ } "l" } [ editor-wind-to-focused-end ] }
-    { T{ key-down f f "[" } [ -10 editor-wind-by ] }
-    { T{ key-down f f "]" } [ 10 editor-wind-by ] }
-    { T{ key-down f f "{" } [ -1 editor-wind-by ] }
-    { T{ key-down f f "}" } [ 1 editor-wind-by ] }
+    { T{ key-down f f "H" } [ dup -1 editor-move editor-wind-to-focused ] }
+    { T{ key-down f f "L" } [ dup 1 editor-move editor-wind-to-focused-end ] }
+    { T{ key-down f f "[" } [ -1 editor-wind-by ] }
+    { T{ key-down f f "]" } [ 1 editor-wind-by ] }
+    { T{ key-down f f "{" } [ -10 editor-wind-by ] }
+    { T{ key-down f f "}" } [ 10 editor-wind-by ] }
     { T{ key-down f f "n" } [ 10 seconds editor-insert-pause ] }
+    { T{ key-down f { C+ } "s" } [ editor-quicksave ] }
+    { T{ key-down f { C+ } "o" } [ editor-quickload ] }
+    { T{ key-down f { C+ } "w" } [ editor-save ] }
+    { T{ key-down f f "g" } [ editor-update-display ] }
 } set-gestures
 

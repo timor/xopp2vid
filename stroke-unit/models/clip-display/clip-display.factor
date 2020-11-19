@@ -88,6 +88,15 @@ M: model-model model-changed
     prev-model <start-time--> :> start-time-model
     prev-model clip-model start-time-model speed-model draw-duration-model new-clip-display ;
 
+:: <duration-clip-display> ( clip initial-duration -- obj )
+    no-predecessor-clip get <model-model> :> prev-model clip
+    <model> :> clip-model initial-duration <model>
+    :> draw-duration-model clip-model draw-duration-model
+    <stroke-speed-->
+    :> speed-model prev-model <start-time--> :> start-time-model
+    prev-model clip-model start-time-model speed-model
+    draw-duration-model new-clip-display ;
+
 : connect-clip-displays ( clip-display1 clip-display2 -- )
     prev>> ?set-model ;
 
@@ -99,3 +108,12 @@ TUPLE: pause-display < clip-display ;
 :: <pause-display> ( initial-duration -- obj )
     no-predecessor-clip get <model-model>
     <empty-clip> <model> over <start-time--> 0 <model> initial-duration <model> new-clip-display ;
+
+: assign-clip-audio ( clip-display path -- )
+    swap
+    [ clip>> compute-model clone swap >>audio-path ]
+    [ clip>> set-model ] bi ;
+
+: assign-audio-dir ( clip-displays path -- )
+    qualified-directory-files
+    [ assign-clip-audio ] 2each ;

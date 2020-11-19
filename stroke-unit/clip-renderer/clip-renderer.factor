@@ -1,7 +1,7 @@
 USING: accessors arrays cairo cairo-gadgets cairo.ffi combinators.short-circuit
 images images.memory.private kernel locals make math math.rectangles
-math.vectors memoize namespaces sequences stroke-unit.strokes stroke-unit.util
-vectors ;
+math.vectors memoize namespaces sequences stroke-unit.elements.images
+stroke-unit.strokes stroke-unit.util vectors ;
 
 IN: stroke-unit.clip-renderer
 
@@ -24,8 +24,9 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
 : segment-time ( segment -- seconds )
     segment-length stroke-speed get /f ; inline
 
-: clip-strokes ( clip -- seq )
-    elements>> [ stroke? ] filter ;
+: clip-strokes ( clip -- seq ) elements>> [ stroke? ] filter ;
+
+: clip-images ( clip -- image-elts ) elements>> [ image-elt? ] filter ;
 
 : clip-rect ( clip -- rect )
     clip-strokes strokes-rect scale-factor get rect-scale ;
@@ -44,9 +45,20 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
 SYMBOL: stroke-num
 SYMBOL: stroke-nums
 
-: add-frame ( surface -- ) surface>image ,
+SYMBOL: frame-output-path
+SYMBOL: path-suffix
+
+:: write-frame ( path-prefix surface -- )
+    surface dup cairo_surface_flush path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo) ;
+
+: (add-frame) ( surface -- ) surface>image ,
     ! stroke-num get stroke-nums get push
     ;
+
+: add-frame ( surface -- )
+    frame-output-path get
+    [ "frame" append-path swap write-frame ]
+    [ (add-frame) ] if* ;
 
 :: render-stroke-frames ( stroke surface -- )
     stroke stroke>color/seg :> ( color segments )
@@ -81,6 +93,7 @@ SYMBOL: last-stroke
 :: render-clip-frames ( clip -- frames )
     clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
     clip clip-strokes :> strokes
+    clip clip-images :> images
     ! V{ } clone stroke-nums set
     ! 0 stroke-num set
     [ dim [| surface |
@@ -88,6 +101,7 @@ SYMBOL: last-stroke
            last-stroke off
            cr loc first2 [ neg ] bi@ cairo_translate
            cr scale-factor get dup cairo_scale
+           images [ render-cairo* surface add-frame ] each
            strokes [
                [ add-inter-stroke-pause ]
                [ surface render-stroke-frames ]
@@ -95,6 +109,29 @@ SYMBOL: last-stroke
                ! stroke-num inc
           ] each
       ] with-image-surface
+    ] { } make ;
+
+:: render-page-clip-frames ( dim scale clip -- frames )
+    ! clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
+    clip clip-strokes :> strokes
+    clip clip-images :> images
+    ! V{ } clone stroke-nums set
+    ! 0 stroke-num set
+    [ dim [| surface |
+           0 segment-timer set
+           0 path-suffix set
+           last-stroke off
+           ! cr loc first2 [ neg ] bi@ cairo_translate
+           ! cr scale-factor get dup cairo_scale
+           cr scale dup cairo_scale
+           images [ render-cairo* surface add-frame ] each
+           strokes [
+               [ add-inter-stroke-pause ]
+               [ surface render-stroke-frames ]
+               [ last-stroke set ] tri
+               ! stroke-num inc
+           ] each
+          ] with-image-surface
     ] { } make ;
 
 : cairo-move-loc ( loc -- )

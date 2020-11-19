@@ -49,6 +49,7 @@ IN: stroke-unit.strokes
 ! : stroke-element? ( xml -- ? ) "stroke" assure-name swap tag-named? ; inline
 
 PREDICATE: stroke < tag name>> main>> "stroke" = ;
+M: stroke element-rect stroke-rect ;
 
 ! Presenting a single stroke at it's actual position, parent object responsible for supplying enough drawing space
 ! TUPLE: stroke-gadget < stroke ;
