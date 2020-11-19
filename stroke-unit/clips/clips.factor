@@ -10,7 +10,7 @@ TUPLE: clip ogg-file audio-path audio elements ;
 
 : <empty-clip> ( -- obj ) clip new ;
 
-PREDICATE: empty-clip < clip elements>> empty? ;
+PREDICATE: empty-clip < clip { [ elements>> empty? ] [ audio>> not ] } 1&& ;
 
 SYMBOL: current-clips
 SINGLETON: +no-audio+
@@ -42,7 +42,7 @@ load-max-clip-size [ 30 ] initialize
     [ +no-audio+ <clip> current-clips get push ] when ;
 
 TAGS: change-clip ( elt -- )
-TAG: stroke change-clip stroke-audio update-current-clip ;
+TAG: stroke change-clip stroke-audio dup empty? [ drop +no-audio+ ] when update-current-clip ;
 TAG: image change-clip drop ;
 
 : page-clips ( xml -- clips )

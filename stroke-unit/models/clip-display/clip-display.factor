@@ -1,6 +1,6 @@
-USING: accessors calendar kernel locals math math.functions math.order models
-models.arrow models.arrow.smart models.product namespaces sequences
-sequences.generalizations stroke-unit.clips ;
+USING: accessors calendar io.directories kernel locals math math.functions
+math.order models models.arrow models.arrow.smart models.product namespaces
+sequences sequences.generalizations stroke-unit.clips ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
@@ -117,3 +117,15 @@ TUPLE: pause-display < clip-display ;
 : assign-audio-dir ( clip-displays path -- )
     qualified-directory-files
     [ assign-clip-audio ] 2each ;
+
+: set-stroke-speed ( stroke-speed clip-display -- )
+    [ clip>> compute-model swap clip-draw-duration ]
+    [ draw-duration>> set-model ] bi ;
+
+: fit-audio-pause ( clip-display -- seconds/f )
+    [ clip>> compute-model clip-audio-duration duration>seconds ]
+    [ draw-duration>> compute-model duration>seconds ] bi - dup 0 > [ drop f ] unless ;
+
+: extend-duration ( clip-display seconds --  )
+    [ draw-duration>> compute-model duration>seconds + seconds ]
+    [ draw-duration>> set-model ] bi ;

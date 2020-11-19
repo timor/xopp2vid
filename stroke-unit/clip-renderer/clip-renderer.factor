@@ -1,7 +1,8 @@
-USING: accessors arrays cairo cairo-gadgets cairo.ffi combinators.short-circuit
-images images.memory.private kernel locals make math math.rectangles
-math.vectors memoize namespaces sequences stroke-unit.elements.images
-stroke-unit.strokes stroke-unit.util vectors ;
+USING: accessors arrays cairo cairo-gadgets cairo.ffi colors.constants
+combinators.short-circuit formatting images images.memory.private io.pathnames
+kernel locals make math math.rectangles math.vectors memoize namespaces
+sequences stroke-unit.elements.images stroke-unit.strokes stroke-unit.util
+vectors ;
 
 IN: stroke-unit.clip-renderer
 
@@ -49,7 +50,7 @@ SYMBOL: frame-output-path
 SYMBOL: path-suffix
 
 :: write-frame ( path-prefix surface -- )
-    surface dup cairo_surface_flush path-prefix path-suffix [ 0 or 1 + dup ] change "%s-%05d.png" sprintf cairo_surface_write_to_png (check-cairo) ;
+    surface dup cairo_surface_flush path-suffix [ 0 or 1 + dup ] change "-%05d.png" sprintf path-prefix prepend cairo_surface_write_to_png (check-cairo) ;
 
 : (add-frame) ( surface -- ) surface>image ,
     ! stroke-num get stroke-nums get push
@@ -111,28 +112,38 @@ SYMBOL: last-stroke
       ] with-image-surface
     ] { } make ;
 
-:: render-page-clip-frames ( dim scale clip -- frames )
-    ! clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
-    clip clip-strokes :> strokes
-    clip clip-images :> images
-    ! V{ } clone stroke-nums set
-    ! 0 stroke-num set
-    [ dim [| surface |
-           0 segment-timer set
-           0 path-suffix set
-           last-stroke off
-           ! cr loc first2 [ neg ] bi@ cairo_translate
-           ! cr scale-factor get dup cairo_scale
-           cr scale dup cairo_scale
-           images [ render-cairo* surface add-frame ] each
-           strokes [
-               [ add-inter-stroke-pause ]
-               [ surface render-stroke-frames ]
-               [ last-stroke set ] tri
-               ! stroke-num inc
-           ] each
-          ] with-image-surface
-    ] { } make ;
+:: draw-white-bg ( dim -- )
+    cr COLOR: white set-source-color
+    cr { 0 0 } dim <rect> fill-rect ;
+
+! :: render-page-clip-frames ( dim scale clips -- frames )
+!     ! clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
+!     ! V{ } clone stroke-nums set
+!     ! 0 stroke-num set
+!     out-path frame-output-path get
+!     [ dim [| surface |
+!            ! cr loc first2 [ neg ] bi@ cairo_translate
+!            ! cr scale-factor get dup cairo_scale
+!            cr scale dup cairo_scale
+!            dim draw-white-bg
+!            clips [| clip i |
+!                   out-path [ i "clip-%02d" sprintf append-path frame-output-path set ] when*
+!                   frame-output-path get [ make-directories ] when*
+!                   0 path-suffix set
+!                   0 segment-timer set
+!                   last-stroke off
+!                   clip clip-strokes :> strokes
+!                   clip clip-images :> images
+!                   images [ render-cairo* surface add-frame ] each
+!                   strokes [
+!                       [ add-inter-stroke-pause ]
+!                       [ surface render-stroke-frames ]
+!                       [ last-stroke set ] tri
+!                       ! stroke-num inc
+!                   ] each
+!                  ] each-index
+!           ] with-image-surface
+!     ] { } make ;
 
 : cairo-move-loc ( loc -- )
     cr swap first2 [ neg ] bi@ cairo_translate ;

@@ -42,7 +42,8 @@ IN: stroke-unit.strokes
     stroke-segments [ second ] map concat rect-containing ; inline
 
 : strokes-rect ( strokes -- rect )
-    [ stroke-rect ] [ rect-union ] map-reduce ;
+    [ <zero-rect> ]
+    [ [ stroke-rect ] [ rect-union ] map-reduce ] if-empty ;
 
 : strokes-dim ( strokes -- dim ) strokes-rect dim>> [ ceiling >integer ] map ;
 

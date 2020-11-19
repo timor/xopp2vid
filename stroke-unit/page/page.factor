@@ -1,12 +1,12 @@
-USING: accessors animators arrays audio.engine calendar combinators fry grouping
-io.encodings.binary io.files io.files.temp kernel locals math math.order models
-models.arrow models.arrow.smart models.selection namespaces prettyprint
+USING: accessors animators arrays audio.engine calendar combinators formatting
+grouping io.directories io.encodings.binary io.files io.files.temp io.pathnames
+kernel locals math models models.arrow models.selection namespaces prettyprint
 sequences serialize stroke-unit.clip-renderer stroke-unit.clips
 stroke-unit.models.clip-display stroke-unit.models.page-parameters
-stroke-unit.page.canvas stroke-unit.page.clip-timeline stroke-unit.page.syntax
-stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.packs
-ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
-ui.gestures vectors ;
+stroke-unit.page.canvas stroke-unit.page.clip-timeline stroke-unit.page.renderer
+stroke-unit.page.syntax stroke-unit.util timers ui.gadgets ui.gadgets.labels
+ui.gadgets.packs ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline
+ui.gadgets.tracks ui.gestures vectors ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
@@ -237,6 +237,9 @@ M: page-editor handle-selection index>> set-model ;
 : change-clip-displays-focused ( gadget quot: ( ...value index -- ... new-value ) -- gadget )
     [ dup selected-clip-index ] dip curry change-clip-displays ; inline
 
+: with-clips/index ( gadget quot: ( clips index -- ) -- )
+    [ [ clip-displays>> compute-model ] [ selected-clip-index ] bi ] dip call ; inline
+
 :: editor-kill-clip ( gadget index -- )
     gadget [
             dup index connect-neighbours
@@ -443,7 +446,8 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     load-clip-displays swap [ clip-displays>> set-model ] [ relayout ] bi ;
 
 : editor-quickload ( gadget -- )
-    quicksave-path get editor-load ;
+    quicksave-path get load-clip-displays swap
+    [ clip-displays>> set-model ] [ relayout ] bi ;
 
 ! Replace with something better
 : editor-update-range ( gadget -- )
@@ -451,10 +455,55 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
-    [ editor-update-range ] [ relayout ] bi ;
+    ! [ clip-displays>> [ compute-model ] [ set-model ] bi ]
+    [ editor-update-range ]
+    [ relayout ] bi ;
 
-: render-page ( gadget path dim -- )
+:: render-page-editor-clips ( editor page dim path --  )
+    path ensure-empty-path :> path
+    page dim editor clip-displays>> compute-model path
+    render-page-clip-frames drop ;
+    ! editor clip-displays>> compute-model [ clip>> compute-model empty-clip? ] reject
+    ! [| c i |
+    !  path i "clip-%02d" sprintf append-path dup make-directories :> clip-dir
+    !  page dim c clip-dir render-page-clip-display
+    !  ! [ clip-dir
+    !  !  save-graphic-image
+    !  ! ] each-index
+    ! ] each-index ;
+
+: render-page ( gadget dim path -- )
     [ dup page>> ] 2dip render-page-editor-clips ;
+
+:: find-pause-create ( gadget -- clip-display )
+    gadget get-focused-clip prev>> compute-model :> prev-clip
+    prev-clip empty-clip?
+    [ prev-clip ]
+    [ gadget 1 seconds editor-insert-pause
+      gadget get-focused-clip ] if ;
+
+:: editor-extend-to-audio ( gadget -- )
+    gadget [ this/next :> ( this next )
+             stroke-speed get this set-stroke-speed
+             this fit-audio-pause :> pause
+             pause
+             [
+                 next clip>> compute-model empty-clip?
+                 [ next pause extend-duration ]
+                 [ pause seconds <pause-display> gadget push-kill gadget editor-yank-after ] if
+             ] when
+    ] with-clips/index ;
+
+! : editor-extend-prev ( gadget -- )
+
+!     gadget [ this/prev :> ( this prev )
+!              prev
+!              [ gadget find-pause-create :> pause
+!                prev [ stroke-speed get swap set-stroke-speed ]
+!                [ fit-audio-pause ] bi
+!                pause draw-duration>> set-model
+!              ] when
+!     ] with-clips/index ;
 
 page-editor H{
     { T{ key-down f f "h" } [ -1 editor-move ] }
@@ -483,5 +532,5 @@ page-editor H{
     { T{ key-down f { C+ } "o" } [ editor-quickload ] }
     { T{ key-down f { C+ } "w" } [ editor-save ] }
     { T{ key-down f f "g" } [ editor-update-display ] }
+    { T{ key-down f f "A" } [ editor-extend-to-audio ] }
 } set-gestures
-

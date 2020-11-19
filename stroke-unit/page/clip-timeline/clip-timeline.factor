@@ -137,7 +137,7 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
     {
         [ clip>> dup compute-model <clip-preview-image> ]
         [ >>clip-display ]
-        ! [ <clip-parameter-string--> <label-control> add-gadget ]
+        [ <clip-parameter-string--> <label-control> add-gadget ]
         ! [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
         [ pick current-time>> swap <preview-cursor> add-gadget ]
         [ swapd [ timescale>> ] dip
@@ -168,6 +168,7 @@ SYMBOL: clip-preview-cache
 clip-preview-cache [ IH{ } clone ] initialize
 
 :: find-timeline-preview ( page-parameters clip-display -- gadget )
+    ! <clip-timeline-preview> ;
     clip-display clip-preview-cache get
     [ [ page-parameters ] dip <clip-timeline-preview> ] cache ;
 
