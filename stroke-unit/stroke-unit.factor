@@ -16,13 +16,21 @@ TUPLE: layer clips ;
 : xopp-test-file ( -- x )
     "~/xournalpp/uebungen/2.1.xopp" load-xopp-file ;
 
+: edit-page ( page -- gadget )
+    <page-editor>
+    dup "foo" open-window ;
+
 : xopp-test ( --  editor )
     xopp-test-file
-    pages first <page-editor>
-    dup "foo" open-window ;
+    pages first edit-page ;
 
 : open-page ( path -- gadget )
     f <page-editor> swap [ editor-load ] keepd [ "foo" open-window ] keep ;
 
 : empty-page ( -- gadget )
     f <page-editor> dup "foo" open-window ;
+
+
+: page2 ( -- gadget )
+    "~/ra1-video/aufgabe2.1p2.suc" open-page
+    xopp-test-file pages second >>page ;

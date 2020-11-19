@@ -123,9 +123,9 @@ MEMO: <empty-image> ( -- image )
 
 : <clip-parameter-string--> ( clip-display -- str )
     [ start-time>> ]
-    ! [ draw-duration>> ]
-    [ stroke-speed>> ] bi
-    [ "%.1fs\n%.1fpt/s" sprintf ] <?smart-arrow> ;
+    [ draw-duration>> ]
+    [ stroke-speed>> ] tri
+    [ [ duration>seconds ] dip "%.1fs\n+%.1fs\n%.1fpt/s" sprintf ] <?smart-arrow> ;
 
 GENERIC: <clip-preview-image> ( model clip -- gadget )
 

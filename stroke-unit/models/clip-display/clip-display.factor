@@ -104,10 +104,12 @@ M: model-model model-changed
 : set-clip ( clip clip-display -- )
     clip>> set-model ;
 
-TUPLE: pause-display < clip-display ;
 :: <pause-display> ( initial-duration -- obj )
     no-predecessor-clip get <model-model>
     <empty-clip> <model> over <start-time--> 0 <model> initial-duration <model> new-clip-display ;
+
+: pause-display? ( clip-display -- ? )
+    clip>> compute-model empty-clip? ;
 
 : assign-clip-audio ( clip-display path -- )
     swap
@@ -129,3 +131,6 @@ TUPLE: pause-display < clip-display ;
 : extend-duration ( clip-display seconds --  )
     [ draw-duration>> compute-model duration>seconds + seconds ]
     [ draw-duration>> set-model ] bi ;
+
+: has-audio? ( clip-display -- path/f )
+    clip>> compute-model audio-path>> dup +no-audio+? [ drop f ] when ;

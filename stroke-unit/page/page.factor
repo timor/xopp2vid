@@ -243,7 +243,8 @@ M: page-editor handle-selection index>> set-model ;
 :: editor-kill-clip ( gadget index -- )
     gadget [
             dup index connect-neighbours
-            index over nth gadget kill-stack>> push
+            index over nth no-predecessor-clip get over prev>> set-model
+            gadget kill-stack>> push
             index swap remove-nth
             ! dup index swap [ nth kill-stack get push ] [ remove-nth ] 2bi
     ] change-clip-displays drop ;
@@ -455,9 +456,9 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
-    ! [ clip-displays>> [ compute-model ] [ set-model ] bi ]
+    [ clip-displays>> [ compute-model ] [ set-model ] bi ]
     [ editor-update-range ]
-    [ relayout ] bi ;
+    [ relayout ] tri ;
 
 :: render-page-editor-clips ( editor page dim path --  )
     path ensure-empty-path :> path
@@ -477,7 +478,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 
 :: find-pause-create ( gadget -- clip-display )
     gadget get-focused-clip prev>> compute-model :> prev-clip
-    prev-clip empty-clip?
+    prev-clip pause-display?
     [ prev-clip ]
     [ gadget 1 seconds editor-insert-pause
       gadget get-focused-clip ] if ;
@@ -534,3 +535,7 @@ page-editor H{
     { T{ key-down f f "g" } [ editor-update-display ] }
     { T{ key-down f f "A" } [ editor-extend-to-audio ] }
 } set-gestures
+
+: clear-caches ( -- )
+    clip-view-cache get clear-assoc
+    clip-preview-cache get clear-assoc ;
