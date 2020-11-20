@@ -108,11 +108,15 @@ MEMO: <empty-image> ( -- image )
 !     clip>> [ clip-audio-duration duration>seconds * 10 2array { 0 50 } swap <rect> ] <?smart-arrow>
 !     <gadget> COLOR: blue 0.2 alpha-color <solid> >>interior <rect-wrapper> ;
 
+: maybe-load-audio ( clip -- audio/path ? )
+    [ load-audio t ] [ drop audio-path>> f ] recover
+    over audio? [ drop f ] unless ;
+
 : <clip-audio-image--> ( clip-model -- image-model )
     [
-        load-audio
+        maybe-load-audio
         [ 0 500 20 COLOR: blue 0.6 alpha-color COLOR: blue 0.2 alpha-color audio-image ]
-        [ <empty-image> ] if*
+        [ drop <empty-image> ] if
     ] <empty-image> <arrow&> ;
 
 : <audio-indicator> ( timescale clip-display -- gadget )
@@ -122,10 +126,13 @@ MEMO: <empty-image> ( -- image )
 ! ** Clip preview gadgets in the timeline
 
 : <clip-parameter-string--> ( clip-display -- str )
-    [ start-time>> ]
-    [ draw-duration>> ]
-    [ stroke-speed>> ] tri
-    [ [ duration>seconds ] dip "%.1fs\n+%.1fs\n%.1fpt/s" sprintf ] <?smart-arrow> ;
+    {
+        [ start-time>> ]
+        [ draw-duration>> ]
+        [ stroke-speed>> ]
+        [ clip>> ]
+    } cleave
+    [ [ duration>seconds ] 2dip audio-path>> dup +no-audio+? [ drop "" ] [ file-name ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n\n%-30s" sprintf ] <?smart-arrow> ;
 
 GENERIC: <clip-preview-image> ( model clip -- gadget )
 

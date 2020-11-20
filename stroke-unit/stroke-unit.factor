@@ -30,7 +30,21 @@ TUPLE: layer clips ;
 : empty-page ( -- gadget )
     f <page-editor> dup "foo" open-window ;
 
+: page1 ( -- gadget )
+    "~/ra1-video/aufgabe2.1p1.suc" open-page
+    xopp-test-file pages first >>page ;
 
 : page2 ( -- gadget )
     "~/ra1-video/aufgabe2.1p2.suc" open-page
     xopp-test-file pages second >>page ;
+
+: page3 ( -- gadget )
+    "~/ra1-video/aufgabe2.1p3.suc" open-page
+    xopp-test-file pages second >>page ;
+
+: load-2.4 ( -- xml )
+    "~/xournalpp/uebungen/2.4.xopp" load-xopp-file ;
+
+: edit-2.4 ( -- gadget )
+    "~/ra1-video/aufgabe2.4.suc" open-page
+    load-2.4 pages first >>page ;

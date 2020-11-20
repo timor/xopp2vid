@@ -1,19 +1,19 @@
-USING: accessors binary-search calendar combinators.short-circuit grouping
-io.pathnames kernel locals math math.order namespaces sequences sequences.mapped
+USING: accessors calendar combinators.short-circuit grouping io.pathnames kernel
+locals math math.order math.rectangles namespaces sequences
 stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
 stroke-unit.util xml.syntax ;
 
 IN: stroke-unit.clips
+SINGLETON: +no-audio+
 
 TUPLE: clip ogg-file audio-path audio elements ;
 : <clip> ( audio-path -- obj ) clip new swap >>audio-path V{ } clone >>elements ;
 
-: <empty-clip> ( -- obj ) clip new ;
+: <empty-clip> ( -- obj ) clip new +no-audio+ >>audio-path ;
 
 PREDICATE: empty-clip < clip { [ elements>> empty? ] [ audio>> not ] } 1&& ;
 
 SYMBOL: current-clips
-SINGLETON: +no-audio+
 
 : with-current-clips ( quot -- )
     [ V{ } clone current-clips ] dip [
@@ -23,15 +23,20 @@ SINGLETON: +no-audio+
 : current-audio ( -- audio )
     current-clips get last audio-path>> ;
 
-: update-current-clip ( audio -- )
+: prepend-audio-path ( path -- path )
+    dup +no-audio+? [ get-current-audio-folder prepend-path ] unless ;
+
+: update-current-clip ( audio-path -- )
     current-audio 2dup =
     [ 2drop ]
     [ +no-audio+?
-      [ get-current-audio-folder prepend-path current-clips get last audio-path<< ]
+      [ ! prepend-audio-path
+        current-clips get last audio-path<< ]
       [ ! f
           dup f =
           [ drop ]
-          [ <clip> current-clips get push ] if
+          [ ! prepend-audio-path
+            <clip> current-clips get push ] if
       ] if
     ] if ;
 SYMBOL: load-max-clip-size
@@ -42,7 +47,7 @@ load-max-clip-size [ 30 ] initialize
     [ +no-audio+ <clip> current-clips get push ] when ;
 
 TAGS: change-clip ( elt -- )
-TAG: stroke change-clip stroke-audio dup empty? [ drop +no-audio+ ] when update-current-clip ;
+TAG: stroke change-clip stroke-audio dup empty? [ drop +no-audio+ ] [ prepend-audio-path ] if update-current-clip ;
 TAG: image change-clip drop ;
 
 : page-clips ( xml -- clips )

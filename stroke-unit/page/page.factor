@@ -1,12 +1,13 @@
-USING: accessors animators arrays audio.engine calendar combinators formatting
-grouping io.directories io.encodings.binary io.files io.files.temp io.pathnames
-kernel locals math models models.arrow models.selection namespaces prettyprint
-sequences serialize stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.models.clip-display stroke-unit.models.page-parameters
-stroke-unit.page.canvas stroke-unit.page.clip-timeline stroke-unit.page.renderer
-stroke-unit.page.syntax stroke-unit.util timers ui.gadgets ui.gadgets.labels
-ui.gadgets.packs ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline
-ui.gadgets.tracks ui.gestures vectors ;
+USING: accessors animators arrays assocs audio.engine calendar combinators
+formatting fry grouping io.directories io.encodings.binary io.files
+io.files.temp io.pathnames kernel locals math models models.arrow
+models.selection namespaces prettyprint sequences serialize
+stroke-unit.clip-renderer stroke-unit.clips stroke-unit.models.clip-display
+stroke-unit.models.page-parameters stroke-unit.page.canvas
+stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.page.syntax
+stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.packs
+ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
+ui.gestures vectors ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
@@ -29,7 +30,7 @@ FROM: namespaces => set ;
 ! clip-displays is a model
 TUPLE: page-editor < track
     page-parameters clip-displays timescale-observer
-    animator playback index kill-stack page filename ;
+    animator playback index kill-stack page filename output-dir ;
 
 :: <page-editor-from-clips> ( clips -- gadget )
     clips initialize-clips :> clip-displays
@@ -199,6 +200,10 @@ M: page-editor handle-selection index>> set-model ;
     3dup connect-insert-after
     [ 1 + ] dip spin insert-nth ;
 
+: clone-clip-display ( clip-display -- clip-display' )
+    [ clip>> compute-model ] [ stroke-speed>> compute-model ] bi
+    <clip-display> ;
+
 : make-2-clip-displays ( clip-display quot: ( clip -- clip1 clip2 ) -- obj1 obj2 )
     [ [ clip>> compute-model ] dip call ] keepd
     stroke-speed>> compute-model [ <clip-display> ] curry bi@ ; inline
@@ -230,11 +235,11 @@ M: page-editor handle-selection index>> set-model ;
 !     2dup swap connect-neighbours
 !     swap kill-nth-clip-display swap clip-displays>> set-model ;
 
-:: change-clip-displays ( gadget quot: ( ... value -- ... new-value/f ) -- gadget )
+:: change-clip-displays ( gadget quot: ( value -- new-value/f ) -- gadget )
     gadget clip-displays>> dup :> model compute-model
     quot call [ model set-model ] when* gadget ; inline
 
-: change-clip-displays-focused ( gadget quot: ( ...value index -- ... new-value ) -- gadget )
+: change-clip-displays-focused ( gadget quot: ( value index -- new-value ) -- gadget )
     [ dup selected-clip-index ] dip curry change-clip-displays ; inline
 
 : with-clips/index ( gadget quot: ( clips index -- ) -- )
@@ -271,6 +276,16 @@ E:: editor-yank-before ( gadget -- )
     dup selected-clip-index editor-kill-clip  ;
     ! [ editor-refocus ] bi ;
 
+: get-focused-clip ( gadget -- clip-display/f )
+    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
+
+: push-kill ( clip gadget -- )
+    kill-stack>> push ;
+
+: editor-copy-focused ( gadget -- )
+    [ get-focused-clip clone-clip-display ]
+    [ push-kill ] bi ;
+
 : <merged-clip-display> ( d1 d2 -- d )
     [ [ clip>> compute-model ] bi@ clip-merge ]
     [ [ draw-duration>> compute-model ] bi@ time+ ] 2bi
@@ -304,8 +319,6 @@ E: editor-move ( gadget offset -- )
     ! [ [ [ timeline-gadget ] [ selected-clip-index ] bi ] dip + focus-clip-index ]
     ! if-zero ;
 
-: get-focused-clip ( gadget -- clip-display/f )
-    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
 ! find-selection selected-item ;
 ! clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
 
@@ -339,9 +352,6 @@ E: editor-change-timescale ( gadget factor -- )
 : kill-pop ( gadget -- clip )
     [ editor-kill-focused ]
     [ kill-stack>> pop ] bi ;
-
-: push-kill ( clip gadget -- )
-    kill-stack>> push ;
 
 : editor-half-focused-clip ( gadget -- )
     dup can-split-focused-clip?
@@ -456,6 +466,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
+    dup get-focused-clip [ clip>> compute-model f >>audio ] [ clip>> set-model ] bi
     [ clip-displays>> [ compute-model ] [ set-model ] bi ]
     [ editor-update-range ]
     [ relayout ] tri ;
@@ -473,8 +484,9 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     !  ! ] each-index
     ! ] each-index ;
 
-: render-page ( gadget dim path -- )
+: render-page-to-path ( gadget dim path -- )
     [ dup page>> ] 2dip render-page-editor-clips ;
+
 
 :: find-pause-create ( gadget -- clip-display )
     gadget get-focused-clip prev>> compute-model :> prev-clip
@@ -483,9 +495,8 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ gadget 1 seconds editor-insert-pause
       gadget get-focused-clip ] if ;
 
-:: editor-extend-to-audio ( gadget -- )
+:: editor-add-pause-to-audio ( gadget -- )
     gadget [ this/next :> ( this next )
-             stroke-speed get this set-stroke-speed
              this fit-audio-pause :> pause
              pause
              [
@@ -494,6 +505,41 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
                  [ pause seconds <pause-display> gadget push-kill gadget editor-yank-after ] if
              ] when
     ] with-clips/index ;
+
+: editor-set-stroke-speed-factor ( gadget factor -- )
+    [
+        stroke-speed get *
+        [ over nth ] dip swap set-stroke-speed
+    ] curry change-clip-displays-focused drop ;
+
+! Set current clip duration to audio duration
+: editor-match-audio ( gadget -- )
+    dup '[ _ get-focused-clip dup has-audio? [
+              [ clip>> compute-model clip-audio-duration ]
+              [ draw-duration>> set-model ] bi
+      ] [ drop ] if ] change-clip-displays drop ;
+
+: page-copy-audio ( gadget -- )
+    [ output-dir>> "audio" append-path ensure-empty-path ]
+    [ clip-displays>> compute-model [ has-audio? ] filter
+      [| display path i | display clip>> compute-model audio-path>>
+        [ path i "clip-%02d.ogg" sprintf append-path copy-file ] when*
+      ] with each-index
+    ] bi ;
+
+! Set the audio from current clip on kill-stack.
+:: editor-set-audio ( gadget --  )
+    gadget kill-stack>> ?last :> tos
+    tos
+    [ gadget
+        [| seq i |
+         tos clip>> compute-model audio-path>> :> new
+         i seq nth [ clip>> compute-model new >>audio-path f >>audio ]
+         [ clip>> set-model ] bi
+         seq
+        ] change-clip-displays-focused drop
+     ] when ;
+
 
 ! : editor-extend-prev ( gadget -- )
 
@@ -510,6 +556,7 @@ page-editor H{
     { T{ key-down f f "h" } [ -1 editor-move ] }
     { T{ key-down f f "l" } [ 1 editor-move ] }
     { T{ key-down f f "x" } [ editor-kill-focused ] }
+    { T{ key-down f f "y" } [ editor-copy-focused ] }
     { T{ key-down f f "P" } [ editor-yank-before ] }
     { T{ key-down f f "p" } [ editor-yank-after ] }
     { T{ key-down f f "m" } [ editor-merge-left ] }
@@ -533,7 +580,14 @@ page-editor H{
     { T{ key-down f { C+ } "o" } [ editor-quickload ] }
     { T{ key-down f { C+ } "w" } [ editor-save ] }
     { T{ key-down f f "g" } [ editor-update-display ] }
-    { T{ key-down f f "A" } [ editor-extend-to-audio ] }
+    { T{ key-down f f "e" } [ editor-match-audio ] }
+    { T{ key-down f f "E" } [ editor-add-pause-to-audio ] }
+    { T{ key-down f { C+ } "A" } [ editor-set-audio ] }
+    { T{ key-down f f "1" } [ 0.25 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "2" } [ 0.5 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
 } set-gestures
 
 : clear-caches ( -- )

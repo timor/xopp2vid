@@ -109,6 +109,8 @@ SYMBOL: last-stroke
                [ last-stroke set ] tri
                ! stroke-num inc
           ] each
+           ! Intended to fix missing frame at end of preview, TODO: check that does not mess up timing
+           surface add-frame
       ] with-image-surface
     ] { } make ;
 
