@@ -47,4 +47,6 @@ TUPLE: layer clips ;
 
 : edit-2.4 ( -- gadget )
     "~/ra1-video/aufgabe2.4.suc" open-page
-    load-2.4 pages first >>page ;
+    "~/ra1-video/aufgabe2.4" >>output-dir
+    load-2.4 pages first >>page
+    ;
