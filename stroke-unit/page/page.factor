@@ -487,6 +487,8 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 : render-page-to-path ( gadget dim path -- )
     [ dup page>> ] 2dip render-page-editor-clips ;
 
+: editor-render-page ( gadget dim -- )
+    over output-dir>> "clips" append-path render-page-to-path ;
 
 :: find-pause-create ( gadget -- clip-display )
     gadget get-focused-clip prev>> compute-model :> prev-clip
@@ -519,12 +521,19 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
               [ draw-duration>> set-model ] bi
       ] [ drop ] if ] change-clip-displays drop ;
 
+:: copy-clip-audio-to-project ( clip-display path i -- )
+    clip-display clip>> compute-model audio-path>> :> src
+    path i "clip-%02d.ogg" sprintf append-path :> dst
+    src dst copy-file
+    clip-display clip>> [ compute-model dst >>audio-path ]
+    [ set-model ] bi ;
+
+ERROR: no-output-dir ;
+
 : page-copy-audio ( gadget -- )
-    [ output-dir>> "audio" append-path ensure-empty-path ]
+    [ output-dir>> [ "audio" append-path ensure-empty-path ] [ no-output-dir ] if* ]
     [ clip-displays>> compute-model [ has-audio? ] filter
-      [| display path i | display clip>> compute-model audio-path>>
-        [ path i "clip-%02d.ogg" sprintf append-path copy-file ] when*
-      ] with each-index
+      [ copy-clip-audio-to-project ] with each-index
     ] bi ;
 
 ! Set the audio from current clip on kill-stack.
