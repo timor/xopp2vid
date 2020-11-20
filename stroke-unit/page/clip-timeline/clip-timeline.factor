@@ -190,7 +190,7 @@ M: clip-timeline model-changed
     swap value>> [ synchronize-previews ] keepd relayout ;
 
 :: <page-timeline> ( clip-displays -- gadget )
-    20 10 horizontal clip-timeline new-timeline
+    5 10 horizontal clip-timeline new-timeline
     clip-displays >>model ;
 
 clip-timeline H{  } set-gestures
