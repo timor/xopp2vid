@@ -95,7 +95,7 @@ M: speed-change render-element
             0 segment-timer set
             last-stroke off
             entry elements>>
-            [ surface swap render-element ] each
+            [ surface swap render-element yield ] each
             ! clip clip-strokes :> strokes
             ! clip clip-images :> images
             ! images [ render-cairo* surface add-frame ] each
