@@ -69,7 +69,7 @@ TAG: image change-clip drop ;
 : clip-move-distance ( clip -- pts )
     clip-strokes strokes-move-distance ;
 
-: clip-video-duration ( clip -- duration )
+: clip-video-duration ( clip -- seconds )
     clip-move-distance stroke-speed get /f ;
 
 ! position is between 0.0 and 1.0
@@ -138,9 +138,9 @@ TAG: image change-clip drop ;
           >>audio audio>> ] if
     ] if* ;
 
-: clip-audio-duration ( clip -- duration )
-    load-audio [ audio-duration ] [ instant ] if* ;
+: clip-audio-duration ( clip -- seconds )
+    load-audio [ audio-duration ] [ 0 ] if* ;
 
-: clip-duration ( clip -- duration )
+: clip-duration ( clip -- seconds )
     [ clip-video-duration ]
     [ clip-audio-duration ] bi max ;

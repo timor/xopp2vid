@@ -55,7 +55,7 @@ M: clip-timeline-preview selection-index
 
 : <preview-position--> ( current-time clip-display -- model )
     [ start-time>> ] [ draw-duration>> ] bi
-    [ duration>seconds 0.01 max [ - ] dip /
+    [ 0.01 max [ - ] dip /
       dup 0 1 between? [ drop f ] unless
     ] <?smart-arrow> ;
 
@@ -66,7 +66,7 @@ M: clip-timeline-preview ungraft*
 :: compute-audio-clip ( current-time start-time clip -- delay clip/f )
     clip load-audio
     [ :> audio
-      audio audio-duration duration>seconds :> duration
+      audio audio-duration :> duration
       current-time start-time duration + >
       [ 0 f ]
       [ start-time current-time - 0 max
@@ -105,7 +105,7 @@ MEMO: <empty-image> ( -- image )
 ! ** Audio clip previews
 
 ! : <audio-indicator> ( timescale clip-display -- gadget )
-!     clip>> [ clip-audio-duration duration>seconds * 10 2array { 0 50 } swap <rect> ] <?smart-arrow>
+!     clip>> [ clip-audio-duration * 10 2array { 0 50 } swap <rect> ] <?smart-arrow>
 !     <gadget> COLOR: blue 0.2 alpha-color <solid> >>interior <rect-wrapper> ;
 
 : maybe-load-audio ( clip -- audio/path ? )
@@ -120,7 +120,7 @@ MEMO: <empty-image> ( -- image )
     ] <empty-image> <arrow&> ;
 
 : <audio-indicator> ( timescale clip-display -- gadget )
-    clip>> [ [ clip-audio-duration duration>seconds * 20 2array { 0 50 } swap <rect> ] <?smart-arrow> ] keep
+    clip>> [ [ clip-audio-duration * 20 2array { 0 50 } swap <rect> ] <?smart-arrow> ] keep
     <clip-audio-image--> <image-control> <rect-wrapper> ;
 
 ! ** Clip preview gadgets in the timeline
@@ -132,7 +132,7 @@ MEMO: <empty-image> ( -- image )
         [ stroke-speed>> ]
         [ clip>> ]
     } cleave
-    [ [ duration>seconds ] 2dip audio-path>> dup +no-audio+? [ drop "" ] [ file-name ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n\n%-30s" sprintf ] <?smart-arrow> ;
+    [ [ ] 2dip audio-path>> dup +no-audio+? [ drop "" ] [ file-name ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n\n%-30s" sprintf ] <?smart-arrow> ;
 
 GENERIC: <clip-preview-image> ( model clip -- gadget )
 
@@ -145,7 +145,7 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
         [ clip>> dup compute-model <clip-preview-image> ]
         [ >>clip-display ]
         [ <clip-parameter-string--> <label-control> add-gadget ]
-        ! [ draw-duration>> [ duration>seconds "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
+        ! [ draw-duration>> [ "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
         [ pick current-time>> swap <preview-cursor> add-gadget ]
         [ swapd [ timescale>> ] dip
           <audio-indicator> add-gadget

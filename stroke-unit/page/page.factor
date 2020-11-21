@@ -401,7 +401,7 @@ E: editor-change-timescale ( gadget factor -- )
     [ page-parameters>> current-time>> set-model ] bi ;
 
 : editor-wind-to-focused-end ( gadget -- )
-    [ get-focused-clip [ start-time>> compute-model ] [ draw-duration>> compute-model duration>seconds ] bi + ]
+    [ get-focused-clip [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi + ]
     [ page-parameters>> current-time>> set-model ] bi ;
 
 : editor-wind-by ( gadget frames -- )
@@ -443,7 +443,7 @@ M: page-editor ungraft*
     dup filename>> compute-model editor-save-to ;
 
 : load-clip-displays ( filename -- clip-displays )
-    binary [ deserialize ] with-file-reader [ first2 <duration-clip-display> ] map
+    binary [ deserialize ] with-file-reader [ first2 maybe-convert-time <duration-clip-display> ] map
     connect-all-displays ;
 
 SYMBOL: quicksave-path
@@ -494,7 +494,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     gadget get-focused-clip prev>> compute-model :> prev-clip
     prev-clip pause-display?
     [ prev-clip ]
-    [ gadget 1 seconds editor-insert-pause
+    [ gadget 1 editor-insert-pause
       gadget get-focused-clip ] if ;
 
 :: editor-add-pause-to-audio ( gadget -- )
@@ -504,7 +504,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
              [
                  next clip>> compute-model empty-clip?
                  [ next pause extend-duration ]
-                 [ pause seconds <pause-display> gadget push-kill gadget editor-yank-after ] if
+                 [ pause <pause-display> gadget push-kill gadget editor-yank-after ] if
              ] when
     ] with-clips/index ;
 
@@ -584,7 +584,7 @@ page-editor H{
     { T{ key-down f f "]" } [ 1 editor-wind-by ] }
     { T{ key-down f f "{" } [ -10 editor-wind-by ] }
     { T{ key-down f f "}" } [ 10 editor-wind-by ] }
-    { T{ key-down f f "n" } [ 10 seconds editor-insert-pause ] }
+    { T{ key-down f f "n" } [ 10 editor-insert-pause ] }
     { T{ key-down f { C+ } "s" } [ editor-quicksave ] }
     { T{ key-down f { C+ } "o" } [ editor-quickload ] }
     { T{ key-down f { C+ } "w" } [ editor-save ] }

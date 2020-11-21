@@ -42,7 +42,7 @@ C: <render-entry> render-entry
                     has-audio? last-audio this-audio = not and
                     or [ V{ } clone this-audio <render-entry> accum push ] when
                     display pause-display?
-                    [ duration duration>seconds <render-pause> accum last elements>> push ]
+                    [ duration <render-pause> accum last elements>> push ]
                     [ speed <speed-change> accum last elements>> push
                       clip elements>> accum last elements>> push-all
                     ] if
@@ -52,7 +52,7 @@ C: <render-entry> render-entry
 !     render-entry
 !     V{ } clone swap
 !     [ dup pause-display?
-!       [ draw-duration>> compute-model duration>seconds over last [ + ] change-pause drop ]
+!       [ draw-duration>> compute-model over last [ + ] change-pause drop ]
 !       [ [ clip>> ] [ stroke-speed>> ] bi [ compute-model ] bi@
 !         0 render-entry boa over push
 !       ] if

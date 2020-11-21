@@ -24,24 +24,24 @@ M: clip-display draw-duration>> dependencies>> 4 swap nth ;
 
 SYMBOL: no-predecessor-clip
 no-predecessor-clip
-[ f <model> f <model> 0 <model> f <model> instant <model> new-clip-display ] initialize
+[ f <model> f <model> 0 <model> f <model> 0 <model> new-clip-display ] call swap set-global
 
 : <draw-speed--> ( duration-model clip-model -- speed-model )
-    [ [ duration>seconds ] [ clip-move-distance ] bi* swap / ]
+    [ [ ] [ clip-move-distance ] bi* swap / ]
     <smart-arrow> ;
 
 : clip-draw-duration ( clip stroke-speed -- duration )
-    [ clip-move-distance ] dip / seconds ;
+    [ clip-move-distance ] dip / ;
 
 ! For updating display from speed parameter
 : <draw-duration--> ( clip-model stroke-speed-model -- duration-model )
     [ clip-draw-duration ] <smart-arrow> ;
 
 : <stroke-speed--> ( clip-model draw-duration-model -- stroke-speed-model )
-    [ [ clip-move-distance ] dip duration>seconds 0.001 max / ] <?smart-arrow> ;
+    [ [ clip-move-distance ] dip 0.001 max / ] <?smart-arrow> ;
 
 : compute-start-time ( prev-clip -- seconds )
-    [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi duration>seconds + ]
+    [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi + ]
     [ 0 ] if* ;
 
 TUPLE: model-model < model saved-model ;
@@ -125,11 +125,11 @@ M: model-model model-changed
     [ draw-duration>> set-model ] bi ;
 
 : fit-audio-pause ( clip-display -- seconds/f )
-    [ clip>> compute-model clip-audio-duration duration>seconds ]
-    [ draw-duration>> compute-model duration>seconds ] bi - dup 0 > [ drop f ] unless ;
+    [ clip>> compute-model clip-audio-duration ]
+    [ draw-duration>> compute-model ] bi - dup 0 > [ drop f ] unless ;
 
 : extend-duration ( clip-display seconds --  )
-    [ draw-duration>> compute-model duration>seconds + seconds ]
+    [ draw-duration>> compute-model + ]
     [ draw-duration>> set-model ] bi ;
 
 : has-audio? ( clip-display -- path/f )

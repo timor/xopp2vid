@@ -1,12 +1,16 @@
 USING: accessors alien alien.data arrays audio audio.engine audio.vorbis
-byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar classes.struct
-colors columns combinators combinators.short-circuit continuations destructors
-endian fry grouping images images.memory.private io.backend io.directories
-io.files io.files.info kernel locals math math.functions math.order math.vectors
-namespaces sequences sequences.mapped strings threads xml xml.data xml.traversal
-;
+byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar calendar.format
+classes.struct colors columns combinators combinators.short-circuit
+continuations destructors endian grouping images images.memory.private
+io.backend io.directories io.files io.files.info io.streams.string kernel math
+math.functions math.order math.vectors namespaces sequences sequences.mapped
+strings threads xml xml.data xml.traversal ;
 
 IN: stroke-unit.util
+
+! Original save-file-compatibility
+: maybe-convert-time ( duration -- seconds )
+    dup duration? [ duration>seconds ] when ;
 
 : ceiling-dim ( dim -- dim )
     [ ceiling >integer ] map ; inline
@@ -88,7 +92,7 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
       [ channels>> ]
       [ sample-bits>> 8 / * ]
       [ sample-rate>> * ]
-     } cleave / seconds ;
+     } cleave / ;
 
 : audio-slice ( audio offset -- audio' )
     [ clone ] dip

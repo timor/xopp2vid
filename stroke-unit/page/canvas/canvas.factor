@@ -21,10 +21,10 @@ preview-stroke-speed [ 70 <model> ] initialize
 : <clip-rect--> ( clip-model scale-model -- rect-model )
     [ [ clip-rect ] dip rect-scale ] <?smart-arrow> ;
 
-! Convention: times in seconds, durations in durations
+! Convention: times in seconds, durations in seconds
 ! TODO: see if there is better semantics for zero-duration clips
 : (clip-position) ( time start-time duration -- position )
-    duration>seconds 0.01 max [ - ] dip / 0 1 clamp ;
+    0.01 max [ - ] dip / 0 1 clamp ;
 
 : <clip-position--> ( time-model start-time-model duration-model -- position-model )
     [ (clip-position) ] <?smart-arrow> ;

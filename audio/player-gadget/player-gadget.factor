@@ -7,7 +7,7 @@ IN: audio.player-gadget
 ! CONSTANT: playback-step-ms 10 ;
 
 : audio-playback-range ( audio -- range )
-    audio-duration duration>seconds [ 0 0 0 ] dip 0.5 <range> ;
+    audio-duration [ 0 0 0 ] dip 0.5 <range> ;
 
 ! : audio-playback-stepper ( range -- periodic finished )
 !     0.5 dup seconds range-stepper ;
@@ -23,7 +23,7 @@ TUPLE: audio-player < border audio audio-clip last-position position animation ;
 
 : make-offset-clip ( position-seconds audio -- clip )
     initialize-audio-gadgets
-    [ audio-duration duration>seconds / ]
+    [ audio-duration / ]
     [ size>> * floor >integer ]
     [ swap audio-slice ] tri
     [ gadget-audio-engine get-global f ] dip f <static-audio-clip> ;

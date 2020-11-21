@@ -45,7 +45,7 @@ TUPLE: slide-wrapper < pack timescale duration-model ;
 :: <slide-wrapper> ( gadget duration timescale orientation -- gadget )
     slide-wrapper new orientation >>orientation 1 >>fill dup :> wrapper
     timescale >>timescale
-    duration value>> duration>seconds <model> :> drag-model
+    duration value>> <model> :> drag-model
     drag-model <separator> :> handle
     drag-model >>model
     duration >>duration-model
@@ -107,7 +107,7 @@ M: slide-wrapper pref-dim*
     [ orientation>> ] tri set-axis ;
 
 : wrapper-drag-ended ( value gadget -- )
-    [ 0 max seconds ] [ duration-model>> set-model ] bi* ;
+    [ 0 max ] [ duration-model>> set-model ] bi* ;
 
 : new-timeline ( separation timescale orientation class -- gadget )
     new-track swap >>timescale swap >>separation ;
