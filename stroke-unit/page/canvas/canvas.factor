@@ -33,12 +33,12 @@ preview-stroke-speed [ 70 <model> ] initialize
     <clip-position--> [ swap float-nth ] <smart-arrow> ;
 
 : <clip-display-frames--> ( page-parameters clip-display -- image-seq-model )
-    [ draw-scale>> ] [ clip>> ] bi* swap <clip-preview-frames--> ;
+    [ draw-scale>> ] [ clip-model>> ] bi* swap <clip-preview-frames--> ;
 
 : <clip-view> ( page-parameters clip-display -- rect-model gadget )
-    [ [ draw-scale>> ] [ clip>> ] bi* swap <clip-rect--> ]
+    [ [ draw-scale>> ] [ clip-model>> ] bi* swap <clip-rect--> ]
     [ <clip-display-frames--> ]
-    [ [ current-time>> ] [ [ start-time>> ] [ draw-duration>> ] bi ] bi* ]
+    [ [ current-time>> ] [ [ start-time-model>> ] [ draw-duration-model>> ] bi ] bi* ]
     2tri <frame-select--> <image-control> ;
 
 ! Model: sequence of clip-displays
@@ -58,7 +58,7 @@ clip-view-cache [ IH{ } clone ] initialize
     [ [ page-parameters ] dip <positioned-clip-view> ] cache ;
 
 : synchronize-views ( gadget clip-displays -- )
-    [ clip>> compute-model empty-clip? ] reject
+    [ clip>> empty-clip? ] reject
     over [ clear-gadget ] [ parameters>> ] bi
     swap [ find-clip-view ] with map add-gadgets drop ;
 

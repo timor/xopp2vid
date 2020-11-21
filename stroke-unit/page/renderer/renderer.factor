@@ -34,7 +34,7 @@ C: <render-entry> render-entry
     ! V{ } clone +no-audio+ <render-entry> 1vector :> accum
     V{ } clone :> accum
     clip-displays [ dup :> display
-                    [ clip>> ] [ stroke-speed>> ] [ draw-duration>> ] tri [ compute-model ] tri@ :> ( clip speed duration )
+                    [ clip>> ] [ stroke-speed!>> ] [ draw-duration>> ] tri :> ( clip speed duration )
                     clip audio-path>> +no-audio+ or :> this-audio
                     accum ?last [ audio>> ] [ this-audio ] if* :> last-audio
                     this-audio +no-audio+? not :> has-audio?
@@ -52,8 +52,8 @@ C: <render-entry> render-entry
 !     render-entry
 !     V{ } clone swap
 !     [ dup pause-display?
-!       [ draw-duration>> compute-model over last [ + ] change-pause drop ]
-!       [ [ clip>> ] [ stroke-speed>> ] bi [ compute-model ] bi@
+!       [ draw-duration>> over last [ + ] change-pause drop ]
+!       [ [ clip>> ] [ stroke-speed!>> ] bi
 !         0 render-entry boa over push
 !       ] if
 !     ] each ;

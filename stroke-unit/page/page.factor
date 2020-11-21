@@ -124,7 +124,7 @@ M: page-editor handle-selection index>> set-model ;
 ! ** Audio playback scheduling
 ! return a sequence of { delay clip/f } pairs
 : clip-playback-schedule ( current-time clip-displays -- seq )
-    [ [ start-time>> ] [ clip>> ] bi [ compute-model ] bi@
+    [ [ start-time!>> ] [ clip>> ] bi
       compute-audio-clip
       [ [| delay clip |
          [ clip play-clip ] delay seconds f <timer>
@@ -167,9 +167,7 @@ M: page-editor handle-selection index>> set-model ;
 
 : connect-neighbours ( clip-displays index -- )
     this/next
-    [ [ prev>> [ compute-model ] [ ! deactivate-model-model
-            drop
-                                 ] bi ] dip
+    [ [ prev>> ] dip
       connect-clip-displays  ]
     [ drop ] if* ;
 
@@ -184,7 +182,7 @@ M: page-editor handle-selection index>> set-model ;
 
 ! before manipulating the sequence
 : connect-insert-before ( clip-displays index clip-display -- )
-    [ swap nth dup prev>> compute-model ] dip
+    [ swap nth dup prev>> ] dip
     [ connect-clip-displays ]
     [ swap connect-clip-displays ] bi ;
 
@@ -201,25 +199,25 @@ M: page-editor handle-selection index>> set-model ;
     [ 1 + ] dip spin insert-nth ;
 
 : clone-clip-display ( clip-display -- clip-display' )
-    [ clip>> compute-model ] [ stroke-speed>> compute-model ] bi
+    [ clip>> ] [ stroke-speed!>> ] bi
     <clip-display> ;
 
 : make-2-clip-displays ( clip-display quot: ( clip -- clip1 clip2 ) -- obj1 obj2 )
-    [ [ clip>> compute-model ] dip call ] keepd
-    stroke-speed>> compute-model [ <clip-display> ] curry bi@ ; inline
+    [ [ clip>> ] dip call ] keepd
+    stroke-speed!>> [ <clip-display> ] curry bi@ ; inline
 
 :: <split-clip-display> ( clip-display position -- obj1 obj2 )
-    clip-display clip>> compute-model :> clip
-    clip-display stroke-speed>> compute-model :> speed
+    clip-display clip>> :> clip
+    clip-display stroke-speed!>> :> speed
     speed stroke-speed [ clip position clip-split-at ] with-variable
     [ speed <clip-display> ] bi@ ;
-    ! [ [ clip>> compute-model ] dip clip-split-at ]
-    ! [ drop stroke-speed>> compute-model ] 2bi
+    ! [ [ clip>> ] dip clip-split-at ]
+    ! [ drop stroke-speed!>> ] 2bi
     ! [ <clip-display> ] curry bi@ ;
 
 : <half-clip-display> ( clip-display -- d1 d2 )
-    [ clip>> compute-model clip-split-half ]
-    [ stroke-speed>> compute-model [ <clip-display> ] curry bi@ ] bi
+    [ clip>> clip-split-half ]
+    [ stroke-speed!>> [ <clip-display> ] curry bi@ ] bi
     ;
 
 ! ** Doing that in editor context
@@ -248,7 +246,7 @@ M: page-editor handle-selection index>> set-model ;
 :: editor-kill-clip ( gadget index -- )
     gadget [
             dup index connect-neighbours
-            index over nth no-predecessor-clip get over prev>> set-model
+            index over nth no-predecessor-clip get over prev<<
             gadget kill-stack>> push
             index swap remove-nth
             ! dup index swap [ nth kill-stack get push ] [ remove-nth ] 2bi
@@ -287,12 +285,12 @@ E:: editor-yank-before ( gadget -- )
     [ push-kill ] bi ;
 
 : <merged-clip-display> ( d1 d2 -- d )
-    [ [ clip>> compute-model ] bi@ clip-merge ]
-    [ [ draw-duration>> compute-model ] bi@ time+ ] 2bi
+    [ [ clip>> ] bi@ clip-merge ]
+    [ [ draw-duration!>> ] bi@ + ] 2bi
     <duration-clip-display> ;
 
 :: replace-nth-clip ( seq n clip -- seq )
-    n seq nth prev>> compute-model :> prev
+    n seq nth prev!>> :> prev
     n 1 + seq ?nth :> next
     prev clip connect-clip-displays
     clip next [ connect-clip-displays ] [ drop ] if*
@@ -329,7 +327,7 @@ E: editor-change-timescale ( gadget factor -- )
 
 : nth-clip-display-position ( gadget clip-displays n -- position )
     [ page-parameters>> current-time>> compute-model ] 2dip swap nth
-    [ start-time>> ] [ draw-duration>> ] bi [ compute-model ] bi@
+    [ start-time!>> ] [ draw-duration>> ] bi
     (clip-position) ;
 
 : selected-clip-position ( gadget -- position )
@@ -347,7 +345,7 @@ E: editor-change-timescale ( gadget factor -- )
     } cleave ;
 
 : can-split-focused-clip? ( gadget -- ? )
-    get-focused-clip [ clip>> compute-model clip-can-split? ] [ f ] if* ;
+    get-focused-clip [ clip>> clip-can-split? ] [ f ] if* ;
 
 : kill-pop ( gadget -- clip )
     [ editor-kill-focused ]
@@ -397,11 +395,11 @@ E: editor-change-timescale ( gadget factor -- )
     ] bi ;
 
 : editor-wind-to-focused ( gadget -- )
-    [ get-focused-clip start-time>> compute-model ]
+    [ get-focused-clip start-time>> ]
     [ page-parameters>> current-time>> set-model ] bi ;
 
 : editor-wind-to-focused-end ( gadget -- )
-    [ get-focused-clip [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi + ]
+    [ get-focused-clip [ start-time>> ] [ draw-duration>> ] bi + ]
     [ page-parameters>> current-time>> set-model ] bi ;
 
 : editor-wind-by ( gadget frames -- )
@@ -434,7 +432,7 @@ M: page-editor ungraft*
     swap filename>> set-model ;
 
 : save-clips ( clip-displays filename --  )
-    binary [ [ [ clip>> ] [ draw-duration>> ] bi [ compute-model ] bi@ [ f >>audio ] dip 2array ] map serialize ] with-file-writer ;
+    binary [ [ [ clip>> ] [ draw-duration>> ] bi [ f >>audio ] dip 2array ] map serialize ] with-file-writer ;
 
 : editor-save-to ( gadget filename -- )
     [ clip-displays>> compute-model ] dip save-clips ;
@@ -466,7 +464,8 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
-    dup get-focused-clip [ clip>> compute-model f >>audio ] [ clip>> set-model ] bi
+    dup get-focused-clip [ f >>audio ] change-clip drop
+    ! [ clip>> model f >>audio ] [ clip>> set-model ] bi
     [ clip-displays>> [ compute-model ] [ set-model ] bi ]
     [ editor-update-range ]
     [ relayout ] tri ;
@@ -491,7 +490,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     over output-dir>> "clips" append-path render-page-to-path ;
 
 :: find-pause-create ( gadget -- clip-display )
-    gadget get-focused-clip prev>> compute-model :> prev-clip
+    gadget get-focused-clip prev>> :> prev-clip
     prev-clip pause-display?
     [ prev-clip ]
     [ gadget 1 editor-insert-pause
@@ -502,7 +501,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
              this fit-audio-pause :> pause
              pause
              [
-                 next clip>> compute-model empty-clip?
+                 next clip>> empty-clip?
                  [ next pause extend-duration ]
                  [ pause <pause-display> gadget push-kill gadget editor-yank-after ] if
              ] when
@@ -517,16 +516,15 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 ! Set current clip duration to audio duration
 : editor-match-audio ( gadget -- )
     dup '[ _ get-focused-clip dup has-audio? [
-              [ clip>> compute-model clip-audio-duration ]
-              [ draw-duration>> set-model ] bi
+              [ clip>> clip-audio-duration ]
+              [ draw-duration<< ] bi
       ] [ drop ] if ] change-clip-displays drop ;
 
 :: copy-clip-audio-to-project ( clip-display path i -- )
-    clip-display clip>> compute-model audio-path>> :> src
+    clip-display clip>> audio-path>> :> src
     path i "clip-%02d.ogg" sprintf append-path :> dst
     src dst copy-file
-    clip-display clip>> [ compute-model dst >>audio-path ]
-    [ set-model ] bi ;
+    clip-display dst assign-clip-audio ;
 
 ERROR: no-output-dir ;
 
@@ -542,9 +540,8 @@ ERROR: no-output-dir ;
     tos
     [ gadget
         [| seq i |
-         tos clip>> compute-model audio-path>> :> new
-         i seq nth [ clip>> compute-model new >>audio-path f >>audio ]
-         [ clip>> set-model ] bi
+         tos clip>> audio-path>> :> new
+         i seq nth new assign-clip-audio
          seq
         ] change-clip-displays-focused drop
      ] when ;

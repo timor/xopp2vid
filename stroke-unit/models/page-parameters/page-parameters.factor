@@ -13,10 +13,8 @@ TUPLE: page-parameters current-time draw-scale timescale ;
     0 <model> 1 <model> 10 <model> page-parameters boa ;
 
 : recompute-page-duration ( clip-diplays -- seconds )
-    last [ start-time>> compute-model ]
-    [ draw-duration>> compute-model ] bi + ;
-! [ draw-duration>> compute-model ]
-! map-sum ;
+    last [ start-time!>> ]
+    [ draw-duration>> ] bi + ;
 
 : <range-page-parameters> ( clip-displays -- range-model parameters )
     recompute-page-duration [ 0 0 0 ] dip 0 <range>

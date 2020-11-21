@@ -46,13 +46,13 @@ load-max-clip-size [ 30 ] initialize
     current-clips get last elements>> length load-max-clip-size get >=
     [ +no-audio+ <clip> current-clips get push ] when ;
 
-TAGS: change-clip ( elt -- )
-TAG: stroke change-clip stroke-audio dup empty? [ drop +no-audio+ ] [ prepend-audio-path ] if update-current-clip ;
-TAG: image change-clip drop ;
+TAGS: change-current-clip ( elt -- )
+TAG: stroke change-current-clip stroke-audio dup empty? [ drop +no-audio+ ] [ prepend-audio-path ] if update-current-clip ;
+TAG: image change-current-clip drop ;
 
 : page-clips ( xml -- clips )
     [ layers [ strokes [
-                   [ change-clip limit-current-clip ]
+                   [ change-current-clip limit-current-clip ]
                    [ current-clips get last elements>> push ] bi
                ] each ] each
       current-clips get

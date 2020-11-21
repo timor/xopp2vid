@@ -1,12 +1,10 @@
-USING: accessors arrays assocs audio.player-gadget calendar colors.constants
-combinators formatting hashtables.identity images images.viewer
-images.viewer.private kernel locals math math.order math.rectangles math.vectors
-memoize models models.arrow models.arrow.smart models.async namespaces
-opengl.textures sequences stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.models.page-parameters stroke-unit.util ui.gadgets ui.gadgets.labels
-ui.gadgets.scrollers ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers
-models.selection
-ui.gestures ui.pens.solid ui.render ;
+USING: accessors arrays assocs audio audio.player-gadget colors.constants
+combinators continuations formatting images images.viewer images.viewer.private
+io.pathnames kernel math math.order math.rectangles models models.arrow
+models.arrow.smart models.async models.selection namespaces opengl.textures
+sequences stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util
+ui.gadgets ui.gadgets.labels ui.gadgets.scrollers ui.gadgets.timeline
+ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid ui.render ;
 
 IN: stroke-unit.page.clip-timeline
 
@@ -54,7 +52,7 @@ M: clip-timeline-preview selection-index
     ! f >>boundary relayout-1 ;
 
 : <preview-position--> ( current-time clip-display -- model )
-    [ start-time>> ] [ draw-duration>> ] bi
+    [ start-time-model>> ] [ draw-duration-model>> ] bi
     [ 0.01 max [ - ] dip /
       dup 0 1 between? [ drop f ] unless
     ] <?smart-arrow> ;
@@ -120,17 +118,17 @@ MEMO: <empty-image> ( -- image )
     ] <empty-image> <arrow&> ;
 
 : <audio-indicator> ( timescale clip-display -- gadget )
-    clip>> [ [ clip-audio-duration * 20 2array { 0 50 } swap <rect> ] <?smart-arrow> ] keep
+    clip-model>> [ [ clip-audio-duration * 20 2array { 0 50 } swap <rect> ] <?smart-arrow> ] keep
     <clip-audio-image--> <image-control> <rect-wrapper> ;
 
 ! ** Clip preview gadgets in the timeline
 
 : <clip-parameter-string--> ( clip-display -- str )
     {
-        [ start-time>> ]
-        [ draw-duration>> ]
-        [ stroke-speed>> ]
-        [ clip>> ]
+        [ start-time-model>> ]
+        [ draw-duration-model>> ]
+        [ stroke-speed-model>> ]
+        [ clip-model>> ]
     } cleave
     [ [ ] 2dip audio-path>> dup +no-audio+? [ drop "" ] [ file-name ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n\n%-30s" sprintf ] <?smart-arrow> ;
 
@@ -142,7 +140,7 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
 
 : <clip-timeline-preview> ( page-parameters clip-display -- gadget )
     {
-        [ clip>> dup compute-model <clip-preview-image> ]
+        [ clip-model>> dup compute-model <clip-preview-image> ]
         [ >>clip-display ]
         [ <clip-parameter-string--> <label-control> add-gadget ]
         ! [ draw-duration>> [ "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
@@ -184,7 +182,7 @@ DEFER: find-page-parameters
 IN: stroke-unit.page.clip-timeline
 : synchronize-previews ( gadget clip-displays -- )
     over [ clear-gadget ] [ find-page-parameters ] bi
-    swap [ [ find-timeline-preview ] [ draw-duration>> ] bi timeline-add ] with each drop ;
+    swap [ [ find-timeline-preview ] [ draw-duration-model>> ] bi timeline-add ] with each drop ;
 
 M: clip-timeline model-changed
     swap value>> [ synchronize-previews ] keepd relayout ;

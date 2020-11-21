@@ -1,26 +1,20 @@
-USING: accessors calendar io.directories kernel locals math math.functions
-math.order models models.arrow models.arrow.smart models.product namespaces
+USING: accessors io.directories kernel math math.functions math.order models
+models.arrow models.arrow.smart models.model-slots models.product namespaces
 sequences sequences.generalizations stroke-unit.clips ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
 
 TUPLE: clip-display < product ;
-SLOT: prev
-SLOT: clip
-SLOT: start-time
-SLOT: stroke-speed
-SLOT: draw-duration
+MODEL-SLOT: clip-display [ dependencies>> first ] prev
+MODEL-SLOT: clip-display [ dependencies>> second ] clip
+MODEL-SLOT: clip-display [ dependencies>> third ] start-time
+MODEL-SLOT: clip-display [ dependencies>> fourth ] stroke-speed
+MODEL-SLOT: clip-display [ dependencies>> 4 swap nth ] draw-duration
 
 ! All parameters models
 : new-clip-display ( prev clip start-time stroke-speed draw-duration -- model )
     5 narray clip-display new-product ;
-
-M: clip-display prev>> dependencies>> first ;
-M: clip-display clip>> dependencies>> second ;
-M: clip-display start-time>> dependencies>> third ;
-M: clip-display stroke-speed>> dependencies>> fourth ;
-M: clip-display draw-duration>> dependencies>> 4 swap nth ;
 
 SYMBOL: no-predecessor-clip
 no-predecessor-clip
@@ -34,6 +28,7 @@ no-predecessor-clip
     [ clip-move-distance ] dip / ;
 
 ! For updating display from speed parameter
+! Unused, draw duration is model graph source
 : <draw-duration--> ( clip-model stroke-speed-model -- duration-model )
     [ clip-draw-duration ] <smart-arrow> ;
 
@@ -41,7 +36,7 @@ no-predecessor-clip
     [ [ clip-move-distance ] dip 0.001 max / ] <?smart-arrow> ;
 
 : compute-start-time ( prev-clip -- seconds )
-    [ [ start-time>> compute-model ] [ draw-duration>> compute-model ] bi + ]
+    [ [ start-time!>> ] [ draw-duration!>> ] bi + ]
     [ 0 ] if* ;
 
 TUPLE: model-model < model saved-model ;
@@ -98,39 +93,32 @@ M: model-model model-changed
     draw-duration-model new-clip-display ;
 
 : connect-clip-displays ( clip-display1 clip-display2 -- )
-    prev>> ?set-model ;
-
-! TODO Needed?
-: set-clip ( clip clip-display -- )
-    clip>> set-model ;
+    ?prev<< ;
+    ! prev>> ?set-model ;
 
 :: <pause-display> ( initial-duration -- obj )
     no-predecessor-clip get <model-model>
     <empty-clip> <model> over <start-time--> 0 <model> initial-duration <model> new-clip-display ;
 
 : pause-display? ( clip-display -- ? )
-    clip>> compute-model empty-clip? ;
+    clip!>> empty-clip? ;
 
 : assign-clip-audio ( clip-display path -- )
-    swap
-    [ clip>> compute-model clone swap >>audio-path ]
-    [ clip>> set-model ] bi ;
+    swap [ swap >>audio-path f >>audio ] change-clip drop ;
 
 : assign-audio-dir ( clip-displays path -- )
-    qualified-directory-files
-    [ assign-clip-audio ] 2each ;
+    qualified-directory-files [ assign-clip-audio ] 2each ;
 
 : set-stroke-speed ( stroke-speed clip-display -- )
-    [ clip>> compute-model swap clip-draw-duration ]
-    [ draw-duration>> set-model ] bi ;
+    [ clip>> swap clip-draw-duration ]
+    [ draw-duration<< ] bi ;
 
 : fit-audio-pause ( clip-display -- seconds/f )
-    [ clip>> compute-model clip-audio-duration ]
-    [ draw-duration>> compute-model ] bi - dup 0 > [ drop f ] unless ;
+    [ clip>> clip-audio-duration ]
+    [ draw-duration!>> ] bi - dup 0 > [ drop f ] unless ;
 
 : extend-duration ( clip-display seconds --  )
-    [ draw-duration>> compute-model + ]
-    [ draw-duration>> set-model ] bi ;
+    [ swap + ] change-draw-duration drop ;
 
 : has-audio? ( clip-display -- path/f )
-    clip>> compute-model audio-path>> dup +no-audio+? [ drop f ] when ;
+    clip>> audio-path>> dup +no-audio+? [ drop f ] when ;
