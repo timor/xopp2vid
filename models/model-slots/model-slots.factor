@@ -1,42 +1,56 @@
-USING: functors ;
+USING: accessors combinators formatting functors kernel lexer models parser
+slots ;
 
 IN: models.model-slots
 
 ! Define a slot on class to be model-driven
 ! Contract:
-! - class must be an obsecver
 ! - underlying slot must exist
-! - must implement model-changed word
-! - model-changed is called for any model slot on class
+! - Defines slot<<, which sets the model value
+! - Defines ?slot<<, which sets the model value conditionally
+! - Defines >>?slot along
+! - Defines slot>> which reads the model value
+! - Defines change-slot, >>slot along
+! - Defines slot!>> which possibly forces recomputation
+! - Defines slot-model>>, which gets the underlying model
 
-<PRIVATE
+! TODO maybe extend to specifying setter
+! CLASS: class name
+! UNDERLYING: quot: ( obj -- model )
+! SLOT: slot name
+<FUNCTOR: define-model-slot ( CLASS UNDERLYING SLOT -- )
 
-: ensure-model ( obj -- model ) dup model? [ <model> ] unless ;
-
-PRIVATE>
-
-<FUNCTOR: define-model-slot ( C U S -- )
-
-C IS ${C}
-set-S DEFINES set-${S}
-S>> IS ${S}>>
-S<< IS ${S}<<
-U>> IS ${U}>>
-U<< IS ${U}<<
+C IS ${CLASS}
+get-S-model DEFINES-PRIVATE get-${SLOT}-model
+S<< IS ${SLOT}<<
+?S<< IS ?${SLOT}<<
+S>> IS ${SLOT}>>
+S!>> IS ${SLOT}!>>
+S-model>> IS ${SLOT}-model>>
 
 WHERE
 
-: set-S ( obj value/model -- )
-    ensure-model
-    over dup U>> [ remove-connection ] [ drop ] if*
-    [ add-connection ] [ swap U<< ] [ swap model-changed ] 2tri ;
+: get-S-model ( obj -- model )
+    UNDERLYING call( obj -- model ) ; inline
 
-M: C S<< over model? [ swap set-S ] [
-        dup U>> dup model? [ nip set-model ] [ drop swap set-S ] if ] if ;
-M: C S>> U>> dup [ value>> ] when ;
+M: C S<< get-S-model set-model ;
+M: C ?S<< get-S-model ?set-model ;
+M: C S>> get-S-model value>> ;
+M: C S!>> get-S-model compute-model ;
+M: C S-model>> get-S-model ;
 
 ;FUNCTOR>
 
-! MODEL-SLOT: class underlying-slot model-slot
+<PRIVATE
+: ensure-protocol-slots ( slot-name -- )
+    {
+        [ define-protocol-slot ]
+        [ "%s-model" sprintf define-reader-generic ]
+        [ "%s!" sprintf define-reader-generic ]
+        [ "?%s" sprintf [ define-writer-generic ] [ define-setter ] bi ]
+    } cleave ;
+PRIVATE>
+
+! MODEL-SLOT: class get-underlying model-slot
 SYNTAX: MODEL-SLOT:
-    scan-token scan-token scan-token dup define-protocol-slot define-model-slot ;
+    scan-word-name scan-object scan-word-name dup ensure-protocol-slots define-model-slot ;
