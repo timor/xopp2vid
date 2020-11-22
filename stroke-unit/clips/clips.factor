@@ -125,9 +125,24 @@ TAG: image change-current-clip drop ;
     [ elements>> [ element-rect rect-center first < ] with partition ]
     [ make-2-clips ] tri ;
 
-! TODO: handle audio correctly
+ERROR: cannot-merge-different-audio audio1 audio2 ;
+: merged-audio-path ( clip1 clip2 -- audio )
+    [ audio-path>> ] bi@
+    2dup { [ = ] [ drop +no-audio+? not ] } 2&& [ cannot-merge-different-audio ] when
+    [ dup +no-audio+? [ drop f ] when ] bi@ or
+    +no-audio+ or
+    ;
+    ! [ or ] [ eq? ] 2bi
+    ! over and [ cannot-merge-different-audio ] when ;
+
+! clone clip1 and append elements from clip2
 : clip-merge ( clip1 clip2 -- clip )
-    swap clone [ swap elements>> append ] change-elements ;
+    [ clone dup ] dip
+    [ [ elements>> ] bi@ append  >>elements ]
+    [ merged-audio-path >>audio-path ]
+    [ [ audio>> ] bi@ or >>audio ] 2tri ;
+    ! 2dup [ audio>> ] bi@ { [ ] [ = not ] } 2&&
+    ! swap clone [ swap elements>> append ] change-elements ;
 
 ! * Audio
 

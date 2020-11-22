@@ -124,13 +124,28 @@ M: page-editor handle-selection index>> set-model ;
 ! ** Audio playback scheduling
 ! return a sequence of { delay clip/f } pairs
 : clip-playback-schedule ( current-time clip-displays -- seq )
+    [ has-audio? ] filter
     [ [ start-time!>> ] [ clip>> ] bi
       compute-audio-clip
       [ [| delay clip |
-         [ clip play-clip ] delay seconds f <timer>
+         [ clip play-clip ] delay f <timer>
         ] keep 2array ]
       [ drop f ] if*
     ] with map sift ;
+
+: selected-clip-index ( gadget -- index )
+    index>> compute-model ;
+! compute-model ;
+! find-selection selected-index ;
+
+: get-focused-clip ( gadget -- clip-display/f )
+    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
+
+! Debug
+: current-clip-audio-schedule ( gadget -- seq )
+    [ page-parameters>> current-time>> compute-model ]
+    [ clip-displays>> compute-model [ has-audio? ] filter ] bi
+    [ [ clip>> audio-path>> ] keep swapd [ start-time!>> ] [ clip>> ] bi audio-clip-schedule 3array ] with map ;
 
 : editor-stop-playback ( gadget -- )
     [ [ first2
@@ -222,11 +237,6 @@ M: page-editor handle-selection index>> set-model ;
 
 ! ** Doing that in editor context
 
-: selected-clip-index ( gadget -- index )
-    index>> compute-model ;
-    ! compute-model ;
-    ! find-selection selected-index ;
-
 ! ! TODO: use combinator
 ! : editor-kill-clip ( gadget index -- )
 !     over clip-displays>> compute-model
@@ -273,9 +283,6 @@ E:: editor-yank-before ( gadget -- )
 : editor-kill-focused ( gadget -- )
     dup selected-clip-index editor-kill-clip  ;
     ! [ editor-refocus ] bi ;
-
-: get-focused-clip ( gadget -- clip-display/f )
-    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
 
 : push-kill ( clip gadget -- )
     kill-stack>> push ;
@@ -505,7 +512,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
-    ! dup get-focused-clip [ f >>audio ] change-clip drop
+    dup get-focused-clip [ f >>audio ] change-clip drop
     ! [ clip>> model f >>audio ] [ clip>> set-model ] bi
     [ clip-displays>> [ compute-model ] [ set-model ] bi ]
     [ editor-update-range ]
@@ -588,10 +595,22 @@ ERROR: no-output-dir ;
         ] change-clip-displays-focused drop
      ] when ;
 
+: extend-end-to-current-time ( gadget clip-display -- )
+    swap page-parameters>> current-time>> compute-model extend-end-to ;
+
 : editor-stretch-focused-end-to-current-time ( gadget -- )
-    [ get-focused-clip ]
-    [ page-parameters>> current-time>> compute-model ] bi
-    extend-end-to ;
+    dup get-focused-clip extend-end-to-current-time ;
+
+    ! [ page-parameters>> current-time>> compute-model ] bi
+    ! extend-end-to ;
+
+: first-clip-display? ( clip-display -- ? )
+    prev>> clip>> not ;
+
+: editor-move-focused-start-to-current-time ( gadget -- )
+    dup get-focused-clip dup first-clip-display?
+    [ 2drop ]
+    [ prev>> extend-end-to-current-time ] if ;
 
 
 ! : editor-extend-prev ( gadget -- )
@@ -641,6 +660,7 @@ page-editor H{
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "<" } [ editor-move-focused-start-to-current-time ] }
     { T{ key-down f f ">" } [ editor-stretch-focused-end-to-current-time ] }
     { T{ key-down f { C+ } "d" } [ drop hand-gadget get ui.tools.inspector:inspector ] }
 } set-gestures

@@ -48,15 +48,28 @@ M: clip-timeline-preview ungraft*
     [ call-next-method ]
     [ f layout-selected ] bi ;
 
-:: compute-audio-clip ( current-time start-time clip -- delay clip/f )
-    clip load-audio
-    [ :> audio
-      audio audio-duration :> duration
-      current-time start-time duration + >
-      [ 0 f ]
-      [ start-time current-time - 0 max
-        current-time start-time - 0 max audio make-offset-clip ] if
-    ] [ 0 f ] if* ;
+:: audio-clip-schedule ( current-time start-time clip -- offset delay )
+    start-time clip load-audio audio-duration + :> end-time
+    current-time end-time >=
+    [ f f ]
+    [ current-time start-time - [ 0 max ] [ neg 0 max seconds ] bi ] if ;
+
+: compute-audio-clip ( current-time start-time clip -- delay/f clip/f )
+    [ audio-clip-schedule ] keep over
+    [| offset delay clip |
+     delay
+     offset clip load-audio make-offset-clip ]
+    [ 3drop f f ] if ;
+
+! :: compute-audio-clip ( current-time start-time clip -- delay clip/f )
+!     clip load-audio
+!     [ :> audio
+!       audio audio-duration :> duration
+!       current-time start-time duration + >
+!       [ 0 f ]
+!       [ start-time current-time - 0 max
+!         current-time start-time - 0 max audio make-offset-clip ] if
+!     ] [ 0 f ] if* ;
 
 ! Model: preview-position
 TUPLE: preview-cursor < gadget ;

@@ -80,6 +80,7 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
         stream generate-audio :> ( buffer length )
         length 0 > [ vec buffer length head-slice append! drop t ]
         [ f ] if
+        yield
     ] loop vec >byte-array ;
 
 : ogg>audio ( filename -- audio )
@@ -94,7 +95,15 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
       [ sample-rate>> * ]
      } cleave / ;
 
+: audio-sample-bytes ( audio -- n )
+    [ channels>> ]
+    [ sample-bits>> 8 / * ] bi ;
+
+: audio-align-offset ( audio offset -- audio offset )
+    over audio-sample-bytes 1 - bitnot bitand ;
+
 : audio-slice ( audio offset -- audio' )
+    audio-align-offset
     [ clone ] dip
     [ [ - ] curry change-size ]
     [ [ swap <displaced-alien> ] curry change-data ] bi ;
