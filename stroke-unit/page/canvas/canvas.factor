@@ -1,8 +1,7 @@
-USING: accessors assocs calendar hashtables.identity images.viewer kernel locals
-math math.order math.rectangles math.vectors models models.arrow.smart
-namespaces sequences stroke-unit.clip-renderer stroke-unit.clips
+USING: accessors images.viewer kernel math math.order math.rectangles
+math.vectors models models.arrow.smart namespaces stroke-unit.clip-renderer
 stroke-unit.models.clip-display stroke-unit.util ui.gadgets
-ui.gadgets.wrappers.rect-wrappers ;
+ui.gadgets.model-children ui.gadgets.wrappers.rect-wrappers ;
 
 IN: stroke-unit.page.canvas
 
@@ -43,29 +42,18 @@ preview-stroke-speed [ 70 <model> ] initialize
 
 ! Model: sequence of clip-displays
 TUPLE: page-canvas < gadget parameters ;
+INSTANCE: page-canvas model-children
 M: page-canvas pref-dim*
     { 0 0 } swap [ rect-extent nip vmax ] each-child ;
-
-! Cache preview and view gadgets
-SYMBOL: clip-view-cache
-clip-view-cache [ IH{ } clone ] initialize
 
 : <positioned-clip-view> ( page-parameters clip-display -- gadget )
     <clip-view> <rect-wrapper> ;
 
-:: find-clip-view ( page-parameters clip-display -- gadget )
-    clip-display clip-view-cache get
-    [ [ page-parameters ] dip <positioned-clip-view> ] cache ;
+M: page-canvas child-model>gadget
+    parameters>> swap <positioned-clip-view> ;
 
-: synchronize-views ( gadget clip-displays -- )
-    [ clip>> empty-clip? ] reject
-    over [ clear-gadget ] [ parameters>> ] bi
-    swap [ find-clip-view ] with map add-gadgets drop ;
-
-M: page-canvas model-changed
-    swap value>> [ synchronize-views ] keepd relayout ;
+M: page-canvas add-model-children swap add-gadgets ;
 
 : <page-canvas> ( page-parameters clip-displays -- gadget )
     page-canvas new swap >>model
     swap >>parameters ;
-! dup init-page-gadgets ;

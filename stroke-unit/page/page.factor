@@ -1,13 +1,12 @@
-USING: accessors animators arrays assocs audio.engine calendar combinators
-formatting fry grouping io.directories io.encodings.binary io.files
-io.files.temp io.pathnames kernel locals math models models.arrow
-models.selection namespaces prettyprint sequences serialize
-stroke-unit.clip-renderer stroke-unit.clips stroke-unit.models.clip-display
-stroke-unit.models.page-parameters stroke-unit.page.canvas
-stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.page.syntax
-stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.packs
-ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
-ui.gestures vectors ;
+USING: accessors animators arrays audio.engine calendar combinators formatting
+grouping io.directories io.encodings.binary io.files io.files.temp io.pathnames
+kernel math models models.arrow models.selection namespaces prettyprint
+sequences serialize stroke-unit.clip-renderer stroke-unit.clips
+stroke-unit.models.clip-display stroke-unit.models.page-parameters
+stroke-unit.page.canvas stroke-unit.page.clip-timeline stroke-unit.page.renderer
+stroke-unit.page.syntax stroke-unit.util timers ui.gadgets ui.gadgets.labels
+ui.gadgets.model-children ui.gadgets.packs ui.gadgets.scrollers
+ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks ui.gestures vectors ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
@@ -30,7 +29,7 @@ FROM: namespaces => set ;
 ! clip-displays is a model
 TUPLE: page-editor < track
     page-parameters clip-displays timescale-observer
-    animator playback index kill-stack page filename output-dir ;
+    animator playback index kill-stack xopp-file page filename output-dir ;
 
 :: <page-editor-from-clips> ( clips -- gadget )
     clips initialize-clips :> clip-displays
@@ -43,7 +42,7 @@ TUPLE: page-editor < track
     clip-displays <model> [ >>clip-displays ] keep
     ! [ <selection> >>selection ] keep
     [ page-parameters swap <page-canvas> 0.85 track-add ]
-    [ <page-timeline> <scroller> 0.15 track-add ] bi
+    [ page-parameters swap <page-timeline> <scroller> 0.15 track-add ] bi
     range-model <page-slider> f track-add
     "stroke-unit-" temp-file now timestamp>filename-component append <model> dup :> filename-model
     >>filename
@@ -428,33 +427,74 @@ M: page-editor ungraft*
 !     { T{ key-down f f "l" } [ timeline-focus-right ] }
 ! } set-gestures
 
+TUPLE: save-record xopp-file page clip/durations output-path ;
+
+: bake-clips ( seq -- seq )
+    [ [ clip>> ] [ draw-duration>> ] bi [ f >>audio ] dip 2array ] map ;
+
+: make-save-record ( gadget -- obj )
+    {
+        [ xopp-file>> ]
+        [ page>> ]
+        [ clip-displays>> compute-model bake-clips ]
+        [ output-dir>> ]
+    } cleave save-record boa ;
+
 : set-filename ( gadget path -- )
     swap filename>> set-model ;
 
-: save-clips ( clip-displays filename --  )
-    binary [ [ [ clip>> ] [ draw-duration>> ] bi [ f >>audio ] dip 2array ] map serialize ] with-file-writer ;
+: ensure-filename ( gadget -- path )
+    filename>> compute-model dup [ "no savefile set" throw ] unless ;
 
+: save-clips ( clip-displays filename --  )
+    binary [ bake-clips serialize ] with-file-writer ;
+
+! TODO inline?
 : editor-save-to ( gadget filename -- )
-    [ clip-displays>> compute-model ] dip save-clips ;
+    [ make-save-record ] dip binary [ serialize ] with-file-writer ;
+    ! [ clip-displays>> compute-model ] dip save-clips ;
 
 : editor-save ( gadget -- )
-    dup filename>> compute-model editor-save-to ;
+    dup ensure-filename compute-model editor-save-to ;
+
+: editor-import-xopp-page ( gadget xopp-file-path page-no -- )
+    over file>xopp pages nth dup page-clips initialize-clips
+    [ >>xopp-file ] [ >>page ] [ swap clip-displays>> set-model ] tri* ;
+
+: unbake-clips ( seq -- seq )
+    [ first2 maybe-convert-time <duration-clip-display> ] map
+    connect-all-displays ;
 
 : load-clip-displays ( filename -- clip-displays )
-    binary [ deserialize ] with-file-reader [ first2 maybe-convert-time <duration-clip-display> ] map
-    connect-all-displays ;
+    binary [ deserialize ] with-file-reader unbake-clips ;
 
 SYMBOL: quicksave-path
 quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 
 : editor-quicksave ( gadget --  )
-    quicksave-path get editor-save-to ;
+    clip-displays>> compute-model quicksave-path get save-clips ;
+    ! quicksave-path get editor-save-to ;
+
+: clear-caches ( gadget -- )
+    [ timeline-gadget clear-gadget-cache ]
+    [ canvas-gadget clear-gadget-cache ] bi
+    ;
+
+: load-save-record ( gadget -- )
+    dup clear-caches
+    dup ensure-filename binary [ deserialize ] with-file-reader
+    { [ xopp-file>> >>xopp-file ]
+      [ page>> >>page ]
+      [ output-path>> >>output-dir ]
+      [ clip/durations>> unbake-clips swap clip-displays>> set-model ]
+    } cleave ;
 
 : editor-load ( gadget path -- )
-    2dup set-filename
-    load-clip-displays swap [ clip-displays>> set-model ] [ relayout ] bi ;
+    [ set-filename ] keepd load-save-record ;
+    ! load-clip-displays swap [ clip-displays>> set-model ] [ relayout ] bi ;
 
 : editor-quickload ( gadget -- )
+    dup clear-caches
     quicksave-path get load-clip-displays swap
     [ clip-displays>> set-model ] [ relayout ] bi ;
 
@@ -595,7 +635,3 @@ page-editor H{
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
 } set-gestures
-
-: clear-caches ( -- )
-    clip-view-cache get clear-assoc
-    clip-preview-cache get clear-assoc ;

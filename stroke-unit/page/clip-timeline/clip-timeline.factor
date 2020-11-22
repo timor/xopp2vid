@@ -1,10 +1,11 @@
-USING: accessors arrays assocs audio audio.player-gadget colors.constants
-combinators continuations formatting images images.viewer images.viewer.private
-io.pathnames kernel math math.order math.rectangles models models.arrow
-models.arrow.smart models.async models.selection namespaces opengl.textures
-sequences stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util
-ui.gadgets ui.gadgets.labels ui.gadgets.scrollers ui.gadgets.timeline
-ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid ui.render ;
+USING: accessors arrays audio audio.player-gadget colors.constants combinators
+continuations formatting images images.viewer images.viewer.private io.pathnames
+kernel math math.order math.rectangles models models.arrow models.arrow.smart
+models.async models.selection opengl.textures sequences
+stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util ui.gadgets
+ui.gadgets.labels ui.gadgets.model-children ui.gadgets.scrollers
+ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid
+ui.render ;
 
 IN: stroke-unit.page.clip-timeline
 
@@ -20,11 +21,6 @@ M: clip-timeline-preview draw-gadget*
 MEMO: preview-pen ( -- pen )
     COLOR: red <solid> ;
 
-! IN: stroke-unit.page
-! DEFER: find-page-parameters
-! DEFER: set-focus-index
-! IN: stroke-unit.page.clip-timeline
-
 : layout-selected ( gadget ? -- )
     preview-pen f ? >>boundary
     relayout ;
@@ -39,17 +35,8 @@ M: clip-timeline-preview selection-index
     [ t layout-selected ]
     [ notify-selection ] tri ;
 
-
-    ! dup clip-display>> notify-selection ;
-
-    ! [ preview-pen >>boundary relayout-1 ]
-    ! [ dup clip-display>> set-focus-index ]
-    ! [ [ dim>> { 0 0 } swap <rect> ] keep scroll>rect ]
-    ! tri ;
-
 : preview-lose-focus ( gadget -- )
     f layout-selected ;
-    ! f >>boundary relayout-1 ;
 
 : <preview-position--> ( current-time clip-display -- model )
     [ start-time-model>> ] [ draw-duration-model>> ] bi
@@ -102,10 +89,6 @@ MEMO: <empty-image> ( -- image )
     ! { { 1 } } matrix>image ;
 ! ** Audio clip previews
 
-! : <audio-indicator> ( timescale clip-display -- gadget )
-!     clip>> [ clip-audio-duration * 10 2array { 0 50 } swap <rect> ] <?smart-arrow>
-!     <gadget> COLOR: blue 0.2 alpha-color <solid> >>interior <rect-wrapper> ;
-
 : maybe-load-audio ( clip -- audio/path ? )
     [ load-audio t ] [ drop audio-path>> f ] recover
     over audio? [ drop f ] unless ;
@@ -154,7 +137,8 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
 ! ** Clip Preview Timeline
 
 ! Model: sequence of clip-displays
-TUPLE: clip-timeline < timeline ;
+TUPLE: clip-timeline < timeline parameters ;
+INSTANCE: clip-timeline model-children
 
 : focus-clip-index ( timeline i -- )
     swap children>> ?nth [ request-focus ] when* ;
@@ -162,33 +146,15 @@ TUPLE: clip-timeline < timeline ;
 : find-timeline ( gadget -- gadget/f )
     [ clip-timeline? ] find-parent ;
 
-! : when-focus ( quot: ( index -- ) -- )
-!     focused-clip-index get 0 or swap call ; inline
+M: clip-timeline child-model>gadget
+    parameters>> swap <clip-timeline-preview> ;
 
-! : timeline-focus-left ( timeline -- ) [ swap 1 - focus-clip-index ] curry when-focus ;
+M: clip-timeline add-model-children
+    swap [ dup clip-display>> draw-duration-model>> timeline-add ] each ;
 
-! : timeline-focus-right ( timeline -- ) [ swap 1 + focus-clip-index ] curry when-focus ;
-
-SYMBOL: clip-preview-cache
-clip-preview-cache [ IH{ } clone ] initialize
-
-:: find-timeline-preview ( page-parameters clip-display -- gadget )
-    ! <clip-timeline-preview> ;
-    clip-display clip-preview-cache get
-    [ [ page-parameters ] dip <clip-timeline-preview> ] cache ;
-
-IN: stroke-unit.page
-DEFER: find-page-parameters
-IN: stroke-unit.page.clip-timeline
-: synchronize-previews ( gadget clip-displays -- )
-    over [ clear-gadget ] [ find-page-parameters ] bi
-    swap [ [ find-timeline-preview ] [ draw-duration-model>> ] bi timeline-add ] with each drop ;
-
-M: clip-timeline model-changed
-    swap value>> [ synchronize-previews ] keepd relayout ;
-
-:: <page-timeline> ( clip-displays -- gadget )
+:: <page-timeline> ( page-parameters clip-displays -- gadget )
     5 10 horizontal clip-timeline new-timeline
-    clip-displays >>model ;
+    clip-displays >>model
+    page-parameters >>parameters ;
 
 clip-timeline H{  } set-gestures
