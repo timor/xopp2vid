@@ -166,8 +166,6 @@ M: clip-timeline add-model-children
     swap [ dup clip-display>> draw-duration-model>> timeline-add ] each ;
 
 :: <page-timeline> ( page-parameters clip-displays -- gadget )
-    5 10 horizontal clip-timeline new-timeline
+    10 10 horizontal clip-timeline new-timeline
     clip-displays >>model
     page-parameters >>parameters ;
-
-clip-timeline H{  } set-gestures

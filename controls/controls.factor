@@ -17,6 +17,7 @@ TUPLE: drag-control < control last-value ;
 GENERIC: drag-started ( value control -- )
 GENERIC: drag-value-changed ( value control -- )
 GENERIC: drag-ended ( value control -- )
+! Relative conversion between mouse deltas and model values
 GENERIC: loc>value ( loc control -- value )
 M: drag-control drag-started 2drop ;
 M: drag-control drag-value-changed set-control-value ;
