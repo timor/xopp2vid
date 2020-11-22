@@ -1,12 +1,13 @@
 USING: accessors animators arrays audio.engine calendar combinators formatting
-grouping io.directories io.encodings.binary io.files io.files.temp io.pathnames
-kernel math models models.arrow models.selection namespaces prettyprint
-sequences serialize stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.models.clip-display stroke-unit.models.page-parameters
-stroke-unit.page.canvas stroke-unit.page.clip-timeline stroke-unit.page.renderer
-stroke-unit.page.syntax stroke-unit.util timers ui.gadgets ui.gadgets.labels
-ui.gadgets.model-children ui.gadgets.packs ui.gadgets.scrollers
-ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks ui.gestures vectors ;
+grouping io.backend io.directories io.encodings.binary io.files io.files.temp
+io.pathnames kernel math models models.arrow models.selection namespaces
+prettyprint sequences serialize stroke-unit.clip-renderer stroke-unit.clips
+stroke-unit.elements stroke-unit.models.clip-display
+stroke-unit.models.page-parameters stroke-unit.page.canvas
+stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.page.syntax
+stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.model-children
+ui.gadgets.packs ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline
+ui.gadgets.tracks ui.gestures ui.tools.inspector vectors xopp.file ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
@@ -504,7 +505,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
-    dup get-focused-clip [ f >>audio ] change-clip drop
+    ! dup get-focused-clip [ f >>audio ] change-clip drop
     ! [ clip>> model f >>audio ] [ clip>> set-model ] bi
     [ clip-displays>> [ compute-model ] [ set-model ] bi ]
     [ editor-update-range ]
