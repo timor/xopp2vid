@@ -444,7 +444,7 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
     swap filename>> set-model ;
 
 : ensure-filename ( gadget -- path )
-    filename>> compute-model dup [ "no savefile set" throw ] unless ;
+    filename>> compute-model dup [ "no savefile set" throw ] unless normalize-path ;
 
 : save-clips ( clip-displays filename --  )
     binary [ bake-clips serialize ] with-file-writer ;
@@ -455,7 +455,7 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
     ! [ clip-displays>> compute-model ] dip save-clips ;
 
 : editor-save ( gadget -- )
-    dup ensure-filename compute-model editor-save-to ;
+    dup ensure-filename editor-save-to ;
 
 : editor-import-xopp-page ( gadget xopp-file-path page-no -- )
     over file>xopp pages nth dup page-clips initialize-clips
@@ -542,8 +542,9 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
              pause
              [
                  next clip>> empty-clip?
-                 [ next pause extend-duration ]
+                 [ pause next draw-duration<< ]
                  [ pause <pause-display> gadget push-kill gadget editor-yank-after ] if
+                 gadget clip-displays>> notify-connections
              ] when
     ] with-clips/index ;
 
