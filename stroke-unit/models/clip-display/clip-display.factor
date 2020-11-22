@@ -118,7 +118,11 @@ M: model-model model-changed
     [ draw-duration!>> ] bi - dup 0 > [ drop f ] unless ;
 
 : extend-duration ( clip-display seconds --  )
-    [ swap + ] change-draw-duration drop ;
+    swap [ swap + ] change-draw-duration drop ;
+
+: extend-end-to ( clip-display seconds -- )
+    over start-time!>> -
+    [ swap draw-duration<< ] [ 2drop ] if-positive ;
 
 : has-audio? ( clip-display -- path/f )
     clip>> audio-path>> dup +no-audio+? [ drop f ] when ;

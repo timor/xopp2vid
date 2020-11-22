@@ -587,6 +587,11 @@ ERROR: no-output-dir ;
         ] change-clip-displays-focused drop
      ] when ;
 
+: editor-stretch-focused-end-to-current-time ( gadget -- )
+    [ get-focused-clip ]
+    [ page-parameters>> current-time>> compute-model ] bi
+    extend-end-to ;
+
 
 ! : editor-extend-prev ( gadget -- )
 
@@ -622,7 +627,7 @@ page-editor H{
     { T{ key-down f f "]" } [ 1 editor-wind-by ] }
     { T{ key-down f f "{" } [ -10 editor-wind-by ] }
     { T{ key-down f f "}" } [ 10 editor-wind-by ] }
-    { T{ key-down f f "n" } [ 10 editor-insert-pause ] }
+    { T{ key-down f f "n" } [ 1 editor-insert-pause ] }
     { T{ key-down f { C+ } "s" } [ editor-quicksave ] }
     { T{ key-down f { C+ } "o" } [ editor-quickload ] }
     { T{ key-down f { C+ } "w" } [ editor-save ] }
@@ -635,4 +640,5 @@ page-editor H{
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f ">" } [ editor-stretch-focused-end-to-current-time ] }
 } set-gestures
