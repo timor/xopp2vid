@@ -641,4 +641,5 @@ page-editor H{
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
     { T{ key-down f f ">" } [ editor-stretch-focused-end-to-current-time ] }
+    { T{ key-down f { C+ } "d" } [ drop hand-gadget get ui.tools.inspector:inspector ] }
 } set-gestures
