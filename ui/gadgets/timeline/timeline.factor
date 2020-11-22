@@ -1,7 +1,7 @@
 USING: accessors arrays calendar colors.constants combinators controls kernel
 locals math math.order math.vectors memoize models sequences stroke-unit.util
-ui.gadgets ui.gadgets.packs ui.gadgets.packs.private ui.gadgets.tracks
-ui.gestures ui.pens.solid ;
+ui.gadgets ui.gadgets.packs ui.gadgets.packs.private ui.gadgets.private
+ui.gadgets.tracks ui.gestures ui.pens.solid ;
 
 IN: ui.gadgets.timeline
 
@@ -38,47 +38,66 @@ separator H{
 
 M: separator pref-dim* find-separation square ;
 DEFER: wrapper-drag-ended
+DEFER: wrapper-drag-started
 M: separator drag-ended parent>> wrapper-drag-ended ;
+M: separator drag-started parent>> wrapper-drag-started ;
 
-TUPLE: slide-wrapper < pack timescale duration-model ;
+TUPLE: slide-wrapper < pack timescale drag-model ;
 
 :: <slide-wrapper> ( gadget duration timescale orientation -- gadget )
     slide-wrapper new orientation >>orientation 1 >>fill dup :> wrapper
     timescale >>timescale
     duration value>> <model> :> drag-model
     drag-model <separator> :> handle
-    drag-model >>model
-    duration >>duration-model
+    drag-model >>drag-model
+    duration >>model
     gadget add-gadget
     handle add-gadget ;
 
-M: slide-wrapper model-changed ( model gadget -- ) nip relayout ;
-
-M: slide-wrapper focusable-child* ( gadget -- gadget ) gadget-child ;
-
 <PRIVATE
-! : wrapper-offset ( wrapper -- n )
-!     find-separation 2 * ;
-
 : slide-wrapper-size ( gadget -- n )
     {
         [ control-value 0 max ]
         [ timescale>> * ]
         [ find-separation + ]
-        ! [ wrapper-offset + ]
-        ! [ find-separation ]
     } cleave ;
-    ! [ square ] bi@ 2array ;
 
-! : slide-wrapper-sizes ( gadget -- seq )
-!     {
-!         [ control-value 0 max ]
-!         [ timescale>> * ]
-!         [ wrapper-offset + ]
-!         [ find-separation ]
-!     } cleave
-!     [ square ] bi@ 2array ;
+: slide-wrapper-pref-dim ( gadget -- dim  )
+    [ dim>> ]
+    [ slide-wrapper-size square ]
+    [ orientation>> ] tri set-axis ;
+
+: swap-models ( gadget -- )
+    {
+        [ deactivate-control ]
+        [ drag-model>> ]
+        [ model>> ]
+        [ drag-model<< ]
+        [ model<< ]
+        [ activate-control ]
+    } cleave ;
+
 PRIVATE>
+M: slide-wrapper pref-dim*
+    slide-wrapper-pref-dim ;
+
+! On start, we disconnect from the application model and connect to the drag model
+: wrapper-drag-started ( value control -- )
+    [ swap-models ] [ set-control-value ] bi ;
+    ! [ model>> [ deactivate-model ] ]
+
+! On end, we reconnect to the application model and set it to the last drag value
+: wrapper-drag-ended ( value gadget -- )
+    [ 0 max ] dip
+    [ swap-models ] [ set-control-value ] bi ;
+    ! [ duration-model>> set-model ] bi* ;
+
+M: slide-wrapper model-changed ( model gadget -- )
+    nip relayout ;
+    ! nip [ slide-wrapper-pref-dim ] [ dim<< ]
+    ! [ parent>> relayout ] tri ;
+
+M: slide-wrapper focusable-child* ( gadget -- gadget ) gadget-child ;
 
 : drag-handle-dim ( slide-wrapper -- dim )
     [ dim>> ]
@@ -100,14 +119,6 @@ M: slide-wrapper layout*
     [ gadget-child dim<< ]
     [ layout-drag-handle ] tri ;
     ! dup slide-wrapper-sizes pack-layout ;
-
-M: slide-wrapper pref-dim*
-    [ dim>> ]
-    [ slide-wrapper-size square ]
-    [ orientation>> ] tri set-axis ;
-
-: wrapper-drag-ended ( value gadget -- )
-    [ 0 max ] [ duration-model>> set-model ] bi* ;
 
 : new-timeline ( separation timescale orientation class -- gadget )
     new-track swap >>timescale swap >>separation ;

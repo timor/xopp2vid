@@ -25,9 +25,9 @@ MEMO: preview-pen ( -- pen )
     preview-pen f ? >>boundary
     relayout ;
 
-DEFER: find-timeline
+DEFER: find-clip-timeline
 M: clip-timeline-preview selection-index
-    [ find-timeline children>> ] keep
+    [ find-clip-timeline children>> ] keep
     [ child? ] curry find drop ;
 
 : preview-gain-focus ( gadget -- )
@@ -143,7 +143,7 @@ INSTANCE: clip-timeline model-children
 : focus-clip-index ( timeline i -- )
     swap children>> ?nth [ request-focus ] when* ;
 
-: find-timeline ( gadget -- gadget/f )
+: find-clip-timeline ( gadget -- gadget/f )
     [ clip-timeline? ] find-parent ;
 
 M: clip-timeline child-model>gadget

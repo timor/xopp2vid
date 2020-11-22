@@ -12,6 +12,7 @@ M: control model-changed nip on-value-change ;
     new swap >>model ;
 
 ! * Drag-controls
+! Model is a value intended to be used for relayouting
 TUPLE: drag-control < control last-value ;
 GENERIC: drag-started ( value control -- )
 GENERIC: drag-value-changed ( value control -- )
