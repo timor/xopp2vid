@@ -74,6 +74,7 @@ M: speed-change render-element
 
 :: render-page-clip-frames ( page dim clip-displays path -- frames )
     dim page page-dim fit-to-scale :> scale
+    page layers [ children-tags [ image-elt? ] filter ] map concat :> images
     ! clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
     ! V{ } clone stroke-nums set
     ! 0 stroke-num set
@@ -83,6 +84,7 @@ M: speed-change render-element
            cr scale dup cairo_scale
            dim draw-white-bg
            clip-displays make-render-list
+           images [ render-cairo* ] each
            [| entry i |
             ! entry clip>> :> clip
             ! ! clip-display clip>> compute-model :> clip
