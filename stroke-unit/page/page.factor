@@ -658,9 +658,9 @@ page-editor H{
     { T{ key-down f f "e" } [ editor-match-audio ] }
     { T{ key-down f f "E" } [ editor-add-pause-to-audio ] }
     { T{ key-down f { C+ } "A" } [ editor-set-audio ] }
-    { T{ key-down f f "1" } [ 0.25 editor-set-stroke-speed-factor ] }
-    { T{ key-down f f "2" } [ 0.5 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "A" } [ editor-edit-audio ] }
+    { T{ key-down f f "1" } [ 0.5 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "2" } [ 0.75 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
