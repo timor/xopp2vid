@@ -1,9 +1,9 @@
 ! Copyright (C) 2020 martinb.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors arrays cairo cairo-gadgets cairo.ffi cairo.surface-renderer
-colors.hex grouping kernel locals math math.functions math.parser
-math.rectangles math.vectors memoize.scoped sequences sequences.mapped
-sequences.zipped splitting ui.gadgets.desks xml.data xml.traversal ;
+USING: accessors arrays cairo cairo-gadgets cairo.ffi colors.hex grouping kernel
+math math.functions math.parser math.rectangles math.vectors sequences
+sequences.zipped splitting stroke-unit.elements ui.gadgets.desks xml.data
+xml.traversal ;
 IN: stroke-unit.strokes
 
 : string>numbers ( str -- seq )
@@ -32,9 +32,20 @@ IN: stroke-unit.strokes
     cr end first2 cairo_line_to
     cr cairo_stroke ; inline
 
-: draw-stroke ( stroke -- )
+PREDICATE: stroke < tag name>> main>> "stroke" = ;
+
+GENERIC: draw-stroke ( stroke -- )
+
+: set-stroke-params ( color -- )
+    cr swap set-source-color
+    cr CAIRO_OPERATOR_SOURCE cairo_set_operator
+    cr CAIRO_LINE_JOIN_ROUND cairo_set_line_join
+    cr CAIRO_LINE_CAP_ROUND cairo_set_line_cap
+    ;
+
+M: stroke draw-stroke
     stroke>color/seg
-    [ cr swap set-source-color ]
+    [ set-stroke-params ]
     [ [ draw-segment ] each ] bi* ;
 
 : stroke-rect ( stroke -- rect )
@@ -49,7 +60,6 @@ IN: stroke-unit.strokes
 
 ! : stroke-element? ( xml -- ? ) "stroke" assure-name swap tag-named? ; inline
 
-PREDICATE: stroke < tag name>> main>> "stroke" = ;
 M: stroke element-rect stroke-rect ;
 
 ! Presenting a single stroke at it's actual position, parent object responsible for supplying enough drawing space
