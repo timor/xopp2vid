@@ -1,7 +1,7 @@
-USING: accessors arrays audio audio.player-gadget colors.constants combinators
-continuations formatting images images.viewer images.viewer.private io.pathnames
-kernel math math.order math.rectangles models models.arrow models.arrow.smart
-models.async models.selection opengl.textures sequences
+USING: accessors arrays audio audio.player-gadget calendar colors.constants
+combinators continuations formatting images images.viewer images.viewer.private
+io.pathnames kernel math math.order math.rectangles models models.arrow
+models.arrow.smart models.async models.selection opengl.textures sequences
 stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util ui.gadgets
 ui.gadgets.labels ui.gadgets.model-children ui.gadgets.scrollers
 ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid

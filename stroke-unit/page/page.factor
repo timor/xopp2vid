@@ -1,8 +1,8 @@
 USING: accessors animators arrays audio.engine calendar combinators formatting
 grouping io.backend io.directories io.encodings.binary io.files io.files.temp
-io.pathnames kernel math models models.arrow models.selection namespaces
-prettyprint sequences serialize stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.elements stroke-unit.models.clip-display
+io.launcher io.pathnames kernel math models models.arrow models.selection
+namespaces prettyprint sequences serialize stroke-unit.clip-renderer
+stroke-unit.clips stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
 stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.page.syntax
 stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.model-children
@@ -654,7 +654,7 @@ page-editor H{
     { T{ key-down f f "]" } [ 1 editor-wind-by ] }
     { T{ key-down f f "{" } [ -10 editor-wind-by ] }
     { T{ key-down f f "}" } [ 10 editor-wind-by ] }
-    { T{ key-down f f "n" } [ 1 editor-insert-pause ] }
+    { T{ key-down f f "n" } [ 2 editor-insert-pause ] }
     { T{ key-down f { C+ } "s" } [ editor-quicksave ] }
     { T{ key-down f { C+ } "o" } [ editor-quickload ] }
     { T{ key-down f { C+ } "w" } [ editor-save ] }
