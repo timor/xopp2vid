@@ -616,6 +616,10 @@ ERROR: no-output-dir ;
     get-focused-clip has-audio?
     [ "audacity %s" sprintf run-detached drop ] when* ;
 
+: editor-change-draw-scale ( gadget inc/dec -- )
+    swap page-parameters>> draw-scale>>
+    [ compute-model + ] [ set-model ] bi ;
+
 ! : editor-extend-prev ( gadget -- )
 
 !     gadget [ this/prev :> ( this prev )
@@ -666,5 +670,7 @@ page-editor H{
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "<" } [ editor-move-focused-start-to-current-time ] }
     { T{ key-down f f ">" } [ editor-stretch-focused-end-to-current-time ] }
+    { T{ key-down f { C+ } "=" } [ 0.1 editor-change-draw-scale ] }
+    { T{ key-down f { C+ } "-" } [ -0.1 editor-change-draw-scale ] }
     { T{ key-down f { C+ } "d" } [ drop hand-gadget get ui.tools.inspector:inspector ] }
 } set-gestures

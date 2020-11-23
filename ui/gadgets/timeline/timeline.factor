@@ -1,7 +1,6 @@
-USING: accessors arrays calendar colors.constants combinators controls kernel
-locals math math.order math.vectors memoize models sequences stroke-unit.util
-ui.gadgets ui.gadgets.packs ui.gadgets.packs.private ui.gadgets.private
-ui.gadgets.tracks ui.gestures ui.pens.solid ;
+USING: accessors arrays colors.constants combinators controls kernel math
+math.order math.vectors models sequences stroke-unit.util ui.gadgets
+ui.gadgets.border-handles ui.gadgets.private ui.gadgets.tracks ui.pens.solid ;
 
 IN: ui.gadgets.timeline
 
