@@ -128,7 +128,7 @@ TAG: image change-current-clip drop ;
 ERROR: cannot-merge-different-audio audio1 audio2 ;
 : merged-audio-path ( clip1 clip2 -- audio )
     [ audio-path>> ] bi@
-    2dup { [ = ] [ drop +no-audio+? not ] } 2&& [ cannot-merge-different-audio ] when
+    2dup { [ [ +no-audio+? not ] both? ] [ = not ] } 2&& [ cannot-merge-different-audio ] when
     [ dup +no-audio+? [ drop f ] when ] bi@ or
     +no-audio+ or
     ;
