@@ -612,6 +612,9 @@ ERROR: no-output-dir ;
     [ 2drop ]
     [ prev>> extend-end-to-current-time ] if ;
 
+: editor-edit-audio ( gadget -- )
+    get-focused-clip has-audio?
+    [ "audacity %s" sprintf run-detached drop ] when* ;
 
 ! : editor-extend-prev ( gadget -- )
 
@@ -657,6 +660,7 @@ page-editor H{
     { T{ key-down f { C+ } "A" } [ editor-set-audio ] }
     { T{ key-down f f "1" } [ 0.25 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "2" } [ 0.5 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "A" } [ editor-edit-audio ] }
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
