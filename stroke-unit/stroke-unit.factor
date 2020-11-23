@@ -50,3 +50,22 @@ TUPLE: layer clips ;
 : import-xopp-page ( path page-no -- gadget )
     [ empty-page dup ] 2dip
     editor-import-xopp-page ;
+
+: edit-3.1 ( -- gadget )
+    empty-page dup
+    "~/ra1-video/aufgabe3.1.sup" editor-load ;
+
+: import-3.2 ( -- gadget )
+    "~/ra1-video/Blatt3/float1.xopp" 2 import-xopp-page
+    "~/ra1-video/Blatt3/3.2-out" >>output-dir
+    dup "~/ra1-video/aufgabe3.2.sup" set-filename
+    ;
+
+: import-3.4 ( -- gadget )
+    "~/ra1-video/Blatt3/float1.xopp" 3 import-xopp-page
+    "~/ra1-video/Blatt3/3.4-out" >>output-dir
+    dup "~/ra1-video/aufgabe3.4.sup" set-filename
+    ;
+
+: edit-3.4 ( -- gadget )
+    empty-page dup "~/ra1-video/aufgabe3.4.sup" editor-load ;
