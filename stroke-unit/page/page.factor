@@ -5,9 +5,10 @@ namespaces prettyprint sequences serialize stroke-unit.clip-renderer
 stroke-unit.clips stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
 stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.page.syntax
-stroke-unit.util timers ui.gadgets ui.gadgets.labels ui.gadgets.model-children
-ui.gadgets.packs ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline
-ui.gadgets.tracks ui.gestures ui.tools.inspector vectors xopp.file ;
+stroke-unit.util timers ui.gadgets ui.gadgets.colon-wrapper ui.gadgets.labels
+ui.gadgets.model-children ui.gadgets.packs ui.gadgets.scrollers
+ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks ui.gestures
+ui.tools.inspector vectors xopp.file ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
@@ -54,7 +55,9 @@ TUPLE: page-editor < track
     page-parameters >>page-parameters ;
 
 : <page-editor> ( page -- gadget )
-    dup page-clips <page-editor-from-clips> swap >>page ;
+    dup page-clips <page-editor-from-clips> swap >>page
+    \ page-editor swap <colon-wrapper>
+    ;
 
 : canvas-gadget ( editor -- gadget ) children>> first ;
 : timeline-gadget ( editor -- gadget ) children>> second viewport>> gadget-child ;

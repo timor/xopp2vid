@@ -14,17 +14,17 @@ TUPLE: layer clips ;
 
 : edit-page ( page -- gadget )
     <page-editor>
-    dup "foo" open-window ;
+    gadget-child dup "foo" open-window ;
 
 : xopp-test ( --  editor )
     xopp-test-file
     pages first edit-page ;
 
 : open-page ( path -- gadget )
-    f <page-editor> swap [ editor-load ] keepd [ "foo" open-window ] keep ;
+    f <page-editor> swap [ editor-load ] keepd [ "foo" open-window ] keep gadget-child ;
 
 : empty-page ( -- gadget )
-    f <page-editor> dup "foo" open-window ;
+    f <page-editor> dup "foo" open-window gadget-child ;
 
 : page1 ( -- gadget )
     "~/ra1-video/aufgabe2.1p1.suc" open-page
