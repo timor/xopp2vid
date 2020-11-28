@@ -3,17 +3,31 @@ USING: accessors kernel math models ui.gadgets ui.gadgets.private ui.gestures ;
 IN: controls
 
 ! * Generic abstraction for controls
+
+! Protocol: children can implement on-value-change
 ! TODO: this might want to be a mixin...
-TUPLE: control < gadget ;
+! TUPLE: control < gadget ;
+MIXIN: control
 GENERIC: on-value-change ( control -- )
 M: control on-value-change drop ;
 M: control model-changed nip on-value-change ;
 : new-control ( model class -- control )
     new swap >>model ;
 
+: notify-control-change ( control -- )
+    model>> notify-connections ;
+
+: ?set-control-value ( value control -- )
+    model>> ?set-model ;
+
+:: ?change-control-value ( control quot: ( ..a value -- ..b value' ) -- )
+    control control-value quot call
+    control ?set-control-value ; inline
+
 ! * Drag-controls
 ! Model is a value intended to be used for relayouting
-TUPLE: drag-control < control last-value ;
+TUPLE: drag-control < gadget last-value ;
+INSTANCE: drag-control control
 GENERIC: drag-started ( value control -- )
 GENERIC: drag-value-changed ( value control -- )
 GENERIC: drag-ended ( value control -- )
