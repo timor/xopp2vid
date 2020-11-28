@@ -1,6 +1,5 @@
-USING: accessors arrays combinators.short-circuit controls kernel locals models
-models.arrow models.arrow.smart models.product sequences ui.gadgets
-ui.gadgets.borders ui.gestures ui.pens.solid ui.theme ;
+USING: accessors arrays kernel models models.model-slots models.product
+sequences ui.gadgets ui.gadgets.borders ui.gestures ui.pens.solid ui.theme ;
 
 IN: models.selection
 
@@ -115,7 +114,6 @@ M: selectable-border selection-changed
 
 : new-selectable-border ( model item child class -- selectable-border )
     new-border swap >>item
-    { 1 1 } >>size
     swap >>model ;
 
 : <selectable-border> ( model item child -- gadget )
