@@ -36,17 +36,10 @@ MODEL-SLOT: selection [ dependencies>> second ] selected
 : toggle-selected ( item selection -- )
     2dup selected? [ deselect-item ] [ select-item ] if ;
 
-
 ! * Protocol for things that have selection models
 
 MIXIN: has-selection
 SLOT: selection
-! GENERIC: multi-select? ( gadget -- ? )
-
-! GENERIC: handles-selection? ( gadget -- ? )
-! GENERIC: handle-selection ( i gadget -- )
-! M: gadget handles-selection? drop f ;
-
 
 ! * Getting selection model from current Gadget
 : find-selection ( gadget -- selection/f )
@@ -67,15 +60,6 @@ SLOT: item
 : notify-select-ctrl-click ( gadget -- )
     [ item>> ] [ find-selection ] bi
     [ toggle-selected ] [ drop ] if* ;
-    ! [| item gadget model |
-    !  item model 2dup selected?
-    !  [ deselect-item ]
-    !  [ gadget multi-select?
-    !    [ select-nonexclusive ]
-    !    [ select-exclusive ] if
-    !  ] if ]
-    ! [ 2drop ] if* ;
-! [ toggle-selected ] [ drop ] if* ;
 
 ! ** React to selection changes
 
@@ -84,23 +68,6 @@ GENERIC: selection-changed ( state selection-control -- )
 M: selection-control model-changed
     [ item>> swap selected? ]
     [ selection-changed ] bi ;
-
-! * Selection models
-! TUPLE: selection-set
-!     items        ! sequence model
-!     multi ;
-! Sequence of items which are part of the selection
-! That sequence can be the dependency of a control, e.g. button
-! Model-changed handler responsible for reacting to becoming selected/deselected
-! Button can ask model whether it should be considered selected or note
-! Button calls toggle-selection-item on the model.  Model decides how to change
-! it's value, e.g. depending on whether multi-selection is enabled or not.
-
-! Model is a sequence of items
-! TUPLE: selection-control < control multi ;
-! SLOT: multi
-
-! Protocol:
 
 ! * Wrapper gadgets that control/display selection status
 ! Model: sequence of items
