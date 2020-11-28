@@ -14,6 +14,7 @@ IN: models.model-slots
 ! - Defines slot!>> which possibly forces recomputation
 ! - Defines slot-model>>, which gets the underlying model
 
+! TODO: conditional changer
 ! TODO maybe extend to specifying setter
 ! CLASS: class name
 ! UNDERLYING: quot: ( obj -- model )

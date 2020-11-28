@@ -3,25 +3,93 @@ models.arrow models.arrow.smart models.product sequences ui.gadgets
 ui.gadgets.borders ui.gestures ui.pens.solid ui.theme ;
 
 IN: models.selection
-FROM: ui.gadgets.wrappers => wrapper ;
 
-GENERIC: handles-selection? ( gadget -- ? )
-GENERIC: handle-selection ( i gadget -- )
-M: gadget handles-selection? drop f ;
+! * Selection Models
+TUPLE: selection < models.product:product multi? ;
+MODEL-SLOT: selection [ dependencies>> first ] items
+MODEL-SLOT: selection [ dependencies>> second ] selected
 
-: find-selection ( gadget -- gadget/f )
-    [ handles-selection? ] find-parent ;
+: <selection> ( items-model -- obj )
+    f <model> 2array selection new-product ;
 
-GENERIC: selection-index ( gadget -- i )
+! * Selection Model manipulation
+: selected? ( item selection -- state )
+    selected>> member? ;
 
-: notify-selection ( gadget -- )
-    dup find-selection
-    [
-        [ selection-index ]
-        [ handle-selection ] bi*
-    ] [ drop ] if* ;
+: select-exclusive ( item selection -- )
+    [ 1array ] dip ?selected<< ;
+
+: select-nonexclusive ( item selection -- )
+    [ swap suffix ] change-selected drop ;
+
+: select-item ( item selection -- )
+    dup multi?>> [ select-nonexclusive ] [ select-exclusive ] if ;
+
+: deselect-item ( item selection -- )
+    [ remove ] change-selected drop ;
+
+: clear-selected ( selection -- )
+    f swap ?selected<< ;
+
+: select-all ( selection -- )
+    [ items>> ] [ ?selected<< ] bi ;
+
+: toggle-selected ( item selection -- )
+    2dup selected? [ deselect-item ] [ select-item ] if ;
+
+
+! * Protocol for things that have selection models
+
+MIXIN: has-selection
+SLOT: selection
+! GENERIC: multi-select? ( gadget -- ? )
+
+! GENERIC: handles-selection? ( gadget -- ? )
+! GENERIC: handle-selection ( i gadget -- )
+! M: gadget handles-selection? drop f ;
+
+
+! * Getting selection model from current Gadget
+: find-selection ( gadget -- selection/f )
+    [ has-selection? ] find-parent
+    dup [ selection>> ] when ;
+
+! * Things that can be selected
+MIXIN: selection-control
+! INSTANCE: selection-control control
+SLOT: item
+
+! ** Control selection from current gadget
+
+: notify-select-click ( gadget -- )
+    [ item>> ] [ find-selection ] bi
+    [ select-exclusive ] [ drop ] if* ;
+
+: notify-select-ctrl-click ( gadget -- )
+    [ item>> ] [ find-selection ] bi
+    [ toggle-selected ] [ drop ] if* ;
+    ! [| item gadget model |
+    !  item model 2dup selected?
+    !  [ deselect-item ]
+    !  [ gadget multi-select?
+    !    [ select-nonexclusive ]
+    !    [ select-exclusive ] if
+    !  ] if ]
+    ! [ 2drop ] if* ;
+! [ toggle-selected ] [ drop ] if* ;
+
+! ** React to selection changes
+
+GENERIC: selection-changed ( state selection-control -- )
+
+M: selection-control model-changed
+    [ item>> swap selected? ]
+    [ selection-changed ] bi ;
 
 ! * Selection models
+! TUPLE: selection-set
+!     items        ! sequence model
+!     multi ;
 ! Sequence of items which are part of the selection
 ! That sequence can be the dependency of a control, e.g. button
 ! Model-changed handler responsible for reacting to becoming selected/deselected
@@ -31,44 +99,16 @@ GENERIC: selection-index ( gadget -- i )
 
 ! Model is a sequence of items
 ! TUPLE: selection-control < control multi ;
-MIXIN: selection-control
-INSTANCE: selection-control control
-SLOT: item
-SLOT: multi
+! SLOT: multi
 
 ! Protocol:
-GENERIC: selection-changed ( state selection-value -- )
-: selected? ( item selection -- state )
-    control-value member? ;
 
-M: selection-control on-value-change
-    [ item>> ] [ selected? ]
-    [ selection-changed ] tri ;
-
-: select-exclusive ( item selection -- )
-    [ 1array ] dip ?set-control-value ;
-
-: select-nonexclusive ( item selection -- )
-    [ swap suffix ] ?change-control-value ;
-
-: select-item ( item selection -- )
-    dup multi>> [ select-nonexclusive ] [ select-exclusive ] if ;
-
-: deselect-item ( item selection -- )
-    [ remove ] ?change-control-value ;
-
-: clear-selected ( selection -- )
-    f ?set-control-value ;
-
-: toggle-selected ( item selection -- )
-    2dup selected? [ deselect-item ] [ select-item ] if ;
-
-! ** Wrapper gadgets that control/display selection status
+! * Wrapper gadgets that control/display selection status
 ! Model: sequence of items
 <PRIVATE
 MEMO: selected-pen ( -- pen ) selection-color <solid> ;
 PRIVATE>
-TUPLE: selectable-border < border item multi ;
+TUPLE: selectable-border < border item ;
 INSTANCE: selectable-border selection-control
 M: selectable-border selection-changed
     swap selected-pen f ? >>interior relayout-1 ;
@@ -81,32 +121,10 @@ M: selectable-border selection-changed
 : <selectable-border> ( model item child -- gadget )
     selectable-border new-selectable-border ;
 
-<PRIVATE
-: ctrl-left-click? ( gesture -- ? )
-    { [ button-down? ] [ mods>> { C+ } sequence= ] } 1&& ;
-
-: selectable-left-click ( gadget -- )
-    [ item>> ] keep select-exclusive ;
-
-: selectable-ctrl-left-click ( gadget -- )
-    [ item>> ] keep toggle-selected ;
-
-: item-selected? ( gadget -- ? )
-    [ item>> ] keep selected? ;
-PRIVATE>
-
-
-! If we are selected, we only handle ctrl-left-click
-! FIXME: This is never called? No idea how to conditionally intercept clicks,
-! then...
-M: selectable-border handles-gesture?
-    dup item-selected?
-    [ drop ctrl-left-click? ] [ call-next-method ] if ;
-
 ! Gesture handling is a bit strange still: We do handle the button-down, while
 ! any child-button handles the button-up event?
 selectable-border H{
-    { T{ button-down f f 1 } [ selectable-left-click ] }
-    { T{ button-down f { C+ } 1 } [ selectable-ctrl-left-click ] }
+    { T{ button-down f f 1 } [ notify-select-click ] }
+    { T{ button-down f { C+ } 1 } [ notify-select-ctrl-click ] }
     { T{ button-up f { C+ } 1 } [ drop ] }
 } set-gestures
