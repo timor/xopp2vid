@@ -31,7 +31,8 @@ FROM: namespaces => set ;
 ! clip-displays is a model
 TUPLE: page-editor < track
     page-parameters clip-displays timescale-observer
-    animator playback index kill-stack xopp-file page filename output-dir ;
+    animator playback selection kill-stack xopp-file page filename output-dir ;
+INSTANCE: page-editor has-selection
 
 :: <page-editor-from-clips> ( clips -- gadget )
     clips initialize-clips :> clip-displays
@@ -39,12 +40,18 @@ TUPLE: page-editor < track
     clip-displays <range-page-parameters> :> ( range-model page-parameters )
     fps get recip [ seconds ] keep range-model <range-animator> >>animator
     V{ } clone >>kill-stack
-    0 <model> dup :> index-model >>index
+    ! 0 <model> dup :> index-model >>index
     ! 0 <model> >>current-index
-    clip-displays <model> [ >>clip-displays ] keep
+    clip-displays <model> :> cds
+    cds >>clip-displays
+    ! [ >>clip-displays ] keep
+    cds <selection> :> selection-model
+    selection-model >>selection
     ! [ <selection> >>selection ] keep
-    [ page-parameters swap <page-canvas> 0.85 track-add ]
-    [ page-parameters swap <page-timeline> <scroller> 0.15 track-add ] bi
+    selection-model [ first2 ?first swap index ] <arrow> :> index-model
+    ! [ <selection> >>selection ] keep
+    page-parameters cds <page-canvas> 0.85 track-add
+    page-parameters cds <page-timeline> <scroller> 0.15 track-add
     range-model <page-slider> f track-add
     "stroke-unit-" temp-file now timestamp>filename-component append <model> dup :> filename-model
     >>filename
@@ -62,67 +69,17 @@ TUPLE: page-editor < track
 : canvas-gadget ( editor -- gadget ) children>> first ;
 : timeline-gadget ( editor -- gadget ) children>> second viewport>> gadget-child ;
 
-! May not change if only index changes
-! : <index-change--> ( clip-displays-model index-model -- model )
-!     [ [ ] <?arrow> ] bi@ [ clamp-index ] <smart-arrow> ;
-
-! :: <focus-index--> ( editor clip-displays-model index-model -- model )
-!     editor timeline-gadget :> timeline
-!     clip-displays-model index-model <index-change--> [ timeline swap [ focus-clip-index ] keep ]
-!     <arrow> ;
-
-    ! [ ]
-    ! ! editor timeline-gadget :> timeline
-    ! ! index-model [ ] <?arrow> clip-displays-model [ ] <?arrow>
-    ! ! [| i s | timeline i focus-clip-index i ] <smart-arrow> ;
-    ! [ [ ] <?arrow> ] bi@ rot timeline-gadget [ nip swap [ focus-clip-index ] keep ] curry
-    ! <smart-arrow> ;
-
 M: page-editor graft*
     { [ call-next-method ]
       [ page-parameters>> timescale>> [ [ set-timescale ] keepd ] ]
       [ timeline-gadget swap curry <arrow> [ activate-model ] keep ]
       [ timescale-observer<< ]
-
-      ! [ dup [ clip-displays>> ] [ index>> ] bi <focus-index--> [ activate-model ] keep ]
-      ! [ index-observer<< ]
-
-      ! [ index>> [ ] <?arrow> [ [ swap focus-clip-index ] keepd ] ]
-      ! [ timeline-gadget swap curry <arrow> [ activate-model ] keep ]
-      ! [ index-observer<< ]
     } cleave ;
 
 M: page-editor focusable-child* timeline-gadget ;
 
 : find-page-parameters ( gadget -- paramters )
     [ page-editor? ] find-parent dup [ page-parameters>> ] when ;
-
-: ensure-index ( editor -- index )
-    [ clip-displays>> compute-model ]
-    [ index>> compute-model clamp-index ]
-    [ [ index>> set-model ] keepd ] tri ;
-
-: editor-refocus ( editor -- )
-    [ ensure-index ]
-    [ timeline-gadget swap focus-clip-index ] bi ;
-
-M: page-editor handles-selection? drop t ;
-M: page-editor handle-selection index>> set-model ;
-
-! : find-selection ( gadget -- model )
-!     [ page-editor? ] find-parent dup [ selection>> ] when ;
-
-! : set-focus ( gadget clip-display -- )
-!     [ find-selection ] dip select-item ;
-    ! gadget [ page-editor? ] find-parent clip-displays>> compute-model
-    ! seq index gadget find-page-parameters focused-index>> set-model ;
-    ! swap [ page-editor? ] find-parent
-    ! [ clip-displays>> compute-model index focused-clip-index set ]
-    ! [ drop ] if* ;
-
-
-    ! dup clip-displays>> compute-model focused-clip-index get clamp-index
-    ! [ timeline-gadget ] dip focus-clip-index ;
 
 ! ** Audio playback scheduling
 ! return a sequence of { delay clip/f } pairs
@@ -136,13 +93,11 @@ M: page-editor handle-selection index>> set-model ;
       [ drop f ] if*
     ] with map sift ;
 
-: selected-clip-index ( gadget -- index )
-    index>> compute-model ;
-! compute-model ;
-! find-selection selected-index ;
+! TODO: replace whole index thing with selection model content?
+: selected-clip-index ( gadget -- index/f )
+    selection>> [ selected>> ?first ] [ items>> ] bi index ;
 
-: get-focused-clip ( gadget -- clip-display/f )
-    [ selected-clip-index ] [ clip-displays>> compute-model nth ] bi ;
+: get-focused-clip ( gadget -- clip-display/f ) selection>> selected>> first ;
 
 ! Debug
 : current-clip-audio-schedule ( gadget -- seq )
@@ -189,14 +144,8 @@ M: page-editor handle-selection index>> set-model ;
       connect-clip-displays  ]
     [ drop ] if* ;
 
-! : kill-nth-clip-display ( clip-displays index -- seq )
-!     swap [ nth kill-stack get push ] [ remove-nth ] 2bi ;
-
 : delete-nth-clip-display ( seq index -- seq display )
     swap [ nth ] [ remove-nth ] 2bi swap ;
-
-    ! [  ]
-    ! kill-nth-clip-display kill-stack get pop ;
 
 ! before manipulating the sequence
 : connect-insert-before ( clip-displays index clip-display -- )
@@ -229,9 +178,6 @@ M: page-editor handle-selection index>> set-model ;
     clip-display stroke-speed!>> :> speed
     speed stroke-speed [ clip position clip-split-at ] with-variable
     [ speed <clip-display> ] bi@ ;
-    ! [ [ clip>> ] dip clip-split-at ]
-    ! [ drop stroke-speed!>> ] 2bi
-    ! [ <clip-display> ] curry bi@ ;
 
 : <half-clip-display> ( clip-display -- d1 d2 )
     [ clip>> clip-split-half ]
@@ -241,11 +187,6 @@ M: page-editor handle-selection index>> set-model ;
 ! ** Doing that in editor context
 
 ! ! TODO: use combinator
-! : editor-kill-clip ( gadget index -- )
-!     over clip-displays>> compute-model
-!     2dup swap connect-neighbours
-!     swap kill-nth-clip-display swap clip-displays>> set-model ;
-
 :: change-clip-displays ( gadget quot: ( value -- new-value/f ) -- gadget )
     gadget clip-displays>> dup :> model compute-model
     quot call [ model set-model ] when* gadget ; inline
@@ -265,7 +206,7 @@ M: page-editor handle-selection index>> set-model ;
             ! dup index swap [ nth kill-stack get push ] [ remove-nth ] 2bi
     ] change-clip-displays drop ;
 
-E:: editor-yank-before ( gadget -- )
+:: editor-yank-before ( gadget -- )
     gadget kill-stack>>
     [
         pop :> to-insert
@@ -284,8 +225,7 @@ E:: editor-yank-before ( gadget -- )
     ] unless-empty ;
 
 : editor-kill-focused ( gadget -- )
-    dup selected-clip-index editor-kill-clip  ;
-    ! [ editor-refocus ] bi ;
+    dup selected-clip-index editor-kill-clip ;
 
 : push-kill ( clip gadget -- )
     kill-stack>> push ;
@@ -317,21 +257,11 @@ E:: editor-yank-before ( gadget -- )
      ] [ f ] if
     ] change-clip-displays-focused drop ;
 
-E: editor-move ( gadget offset -- )
+: editor-move ( gadget offset -- )
     [ drop ]
     [ swap [ selected-clip-index + ] [ index>> set-model ] bi ] if-zero ;
-    ! offset zero?
-    ! [ gadget selected-clip-index offset + gadget index>> set-model ] unless ;
-    ! [ swap  ]
-    ! [ drop ]
-    ! [ [ [ timeline-gadget ] [ selected-clip-index ] bi ] dip + focus-clip-index ]
-    ! if-zero ;
 
-! find-selection selected-item ;
-! clip-displays>> compute-model focused-clip-index get [ swap nth ] [ drop f ] if* ;
-
-
-E: editor-change-timescale ( gadget factor -- )
+: editor-change-timescale ( gadget factor -- )
     over page-parameters>> timescale>> compute-model *
     swap page-parameters>> timescale>> set-model ;
 
@@ -388,15 +318,6 @@ E: editor-change-timescale ( gadget factor -- )
 : editor-divide-focused-clip-horizontal ( gadget -- )
     [ clip-divide-horizontal ] editor-split-action ;
 
-! : editor-divide-focused-clip-vertical ( gadget -- )
-!     dup can-split-focused-clip?
-!     [ { [ kill-pop
-!           [ clip-divide-vertical ] make-2-clip-displays swap ]
-!         [ [ push-kill ] curry bi@ ]
-!         [ editor-yank-before ]
-!         [ editor-yank-before ]
-!       } cleave ]  [ drop ] if ;
-
 : editor-toggle-playback ( gadget -- )
     [ animator>> toggle-animation ]
     [ dup playback>>
@@ -426,17 +347,7 @@ M: page-editor ungraft*
       [ call-next-method ]
     } cleave ;
 
-! : clip>preview ( editor clip-display -- preview-gadget/f )
-!     over clip-displays>> index
-!     [ swap timeline-gadget children>> nth ]
-!     [ 2drop f ] if* ;
-
 ! * Editor Keybindings
-
-! clip-timeline H{
-!     { T{ key-down f f "h" } [ timeline-focus-left ] }
-!     { T{ key-down f f "l" } [ timeline-focus-right ] }
-! } set-gestures
 
 TUPLE: save-record xopp-file page clip/durations output-path ;
 
@@ -516,7 +427,6 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 
 : editor-update-display ( gadget -- )
     dup get-focused-clip [ f >>audio ] change-clip drop
-    ! [ clip>> model f >>audio ] [ clip>> set-model ] bi
     [ clip-displays>> [ compute-model ] [ set-model ] bi ]
     [ editor-update-range ]
     [ relayout ] tri ;
@@ -525,14 +435,6 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     path ensure-empty-path :> path
     page dim editor clip-displays>> compute-model path
     render-page-clip-frames drop ;
-    ! editor clip-displays>> compute-model [ clip>> compute-model empty-clip? ] reject
-    ! [| c i |
-    !  path i "clip-%02d" sprintf append-path dup make-directories :> clip-dir
-    !  page dim c clip-dir render-page-clip-display
-    !  ! [ clip-dir
-    !  !  save-graphic-image
-    !  ! ] each-index
-    ! ] each-index ;
 
 : render-page-to-path ( gadget dim path -- )
     [ dup page>> ] 2dip render-page-editor-clips ;
@@ -604,9 +506,6 @@ ERROR: no-output-dir ;
 : editor-stretch-focused-end-to-current-time ( gadget -- )
     dup get-focused-clip extend-end-to-current-time ;
 
-    ! [ page-parameters>> current-time>> compute-model ] bi
-    ! extend-end-to ;
-
 : first-clip-display? ( clip-display -- ? )
     prev>> clip>> not ;
 
@@ -622,17 +521,6 @@ ERROR: no-output-dir ;
 : editor-change-draw-scale ( gadget inc/dec -- )
     swap page-parameters>> draw-scale>>
     [ compute-model + ] [ set-model ] bi ;
-
-! : editor-extend-prev ( gadget -- )
-
-!     gadget [ this/prev :> ( this prev )
-!              prev
-!              [ gadget find-pause-create :> pause
-!                prev [ stroke-speed get swap set-stroke-speed ]
-!                [ fit-audio-pause ] bi
-!                pause draw-duration>> set-model
-!              ] when
-!     ] with-clips/index ;
 
 page-editor H{
     { T{ key-down f f "h" } [ -1 editor-move ] }

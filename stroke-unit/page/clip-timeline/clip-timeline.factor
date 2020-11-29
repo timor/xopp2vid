@@ -11,6 +11,7 @@ IN: stroke-unit.page.clip-timeline
 
 ! * Image-control that keeps aspect ratio and displays other stuff for use in timeline
 TUPLE: clip-timeline-preview < image-control clip-display ;
+
 M: clip-timeline-preview draw-gadget*
     dup image>>
     [ [ [ image-gadget-texture ] [ dim>> ] bi ]
@@ -18,35 +19,11 @@ M: clip-timeline-preview draw-gadget*
       swap draw-scaled-texture ]
     [ drop ] if* ;
 
-MEMO: preview-pen ( -- pen )
-    COLOR: red <solid> ;
-
-: layout-selected ( gadget ? -- )
-    preview-pen f ? >>boundary
-    relayout ;
-
-DEFER: find-clip-timeline
-M: clip-timeline-preview selection-index
-    [ find-clip-timeline children>> ] keep
-    [ child? ] curry find drop ;
-
-: preview-gain-focus ( gadget -- )
-    [ [ dim>> { 0 0 } swap <rect> ] keep scroll>rect ]
-    [ t layout-selected ]
-    [ notify-selection ] tri ;
-
-: preview-lose-focus ( gadget -- )
-    f layout-selected ;
-
 : <preview-position--> ( current-time clip-display -- model )
     [ start-time-model>> ] [ draw-duration-model>> ] bi
     [ 0.01 max [ - ] dip /
       dup 0 1 between? [ drop f ] unless
     ] <?smart-arrow> ;
-
-M: clip-timeline-preview ungraft*
-    [ call-next-method ]
-    [ f layout-selected ] bi ;
 
 :: audio-clip-schedule ( current-time start-time clip -- offset delay )
     start-time clip load-audio audio-duration + :> end-time
@@ -60,16 +37,6 @@ M: clip-timeline-preview ungraft*
      delay
      offset clip load-audio make-offset-clip ]
     [ 3drop f f ] if ;
-
-! :: compute-audio-clip ( current-time start-time clip -- delay clip/f )
-!     clip load-audio
-!     [ :> audio
-!       audio audio-duration :> duration
-!       current-time start-time duration + >
-!       [ 0 f ]
-!       [ start-time current-time - 0 max
-!         current-time start-time - 0 max audio make-offset-clip ] if
-!     ] [ 0 f ] if* ;
 
 ! Model: preview-position
 TUPLE: preview-cursor < gadget ;
@@ -88,18 +55,11 @@ M: preview-cursor model-changed
     <preview-position--> preview-cursor new swap >>model
     COLOR: blue <solid> >>interior ;
 
-clip-timeline-preview H{
-    { gain-focus [ preview-gain-focus ] }
-    { lose-focus [ preview-lose-focus ] }
-    { T{ button-down } [ request-focus ] }
-} set-gestures
-
 MEMO: <empty-image> ( -- image )
     <image> { 0 0 } >>dim
     L >>component-order
     ubyte-components >>component-type
     B{ } >>bitmap ;
-    ! { { 1 } } matrix>image ;
 ! ** Audio clip previews
 
 : maybe-load-audio ( clip -- audio/path ? )
@@ -153,17 +113,12 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
 TUPLE: clip-timeline < timeline parameters ;
 INSTANCE: clip-timeline model-children
 
-: focus-clip-index ( timeline i -- )
-    swap children>> ?nth [ request-focus ] when* ;
-
-: find-clip-timeline ( gadget -- gadget/f )
-    [ clip-timeline? ] find-parent ;
-
-M: clip-timeline child-model>gadget
-    parameters>> swap <clip-timeline-preview> ;
+M:: clip-timeline child-model>gadget ( model gadget -- gadget )
+    gadget parameters>> model <clip-timeline-preview>
+    [ gadget find-selection model ] dip <selectable-border> ;
 
 M: clip-timeline add-model-children
-    swap [ dup clip-display>> draw-duration-model>> timeline-add ] each ;
+    swap [ dup gadget-child clip-display>> draw-duration-model>> timeline-add ] each ;
 
 :: <page-timeline> ( page-parameters clip-displays -- gadget )
     10 10 horizontal clip-timeline new-timeline
