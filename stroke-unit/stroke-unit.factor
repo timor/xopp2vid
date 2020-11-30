@@ -1,4 +1,4 @@
-USING: accessors kernel models sequences stroke-unit.elements ui xopp.file ;
+USING: kernel sequences stroke-unit.elements ui ui.gadgets xopp.file ;
 
 USE: stroke-unit.util
 USE: stroke-unit.clips

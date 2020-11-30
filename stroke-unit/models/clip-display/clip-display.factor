@@ -1,7 +1,7 @@
-USING: accessors io.directories kernel math math.combinators math.functions
-math.order models models.arrow models.arrow.smart models.model-slots
-models.product namespaces sequences sequences.generalizations stroke-unit.clips
-;
+USING: accessors arrays io.directories kernel math math.combinators
+math.functions math.order models models.arrow models.arrow.smart
+models.model-slots models.product namespaces sequences sequences.generalizations
+stroke-unit.clips ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
@@ -84,6 +84,10 @@ M: model-model model-changed
     prev-model <start-time--> :> start-time-model
     prev-model clip-model start-time-model speed-model draw-duration-model new-clip-display ;
 
+: clone-clip-display ( clip-display -- clip-display' )
+    [ clip>> ] [ stroke-speed!>> ] bi
+    <clip-display> ;
+
 :: <duration-clip-display> ( clip initial-duration -- obj )
     no-predecessor-clip get <model-model> :> prev-model clip
     <model> :> clip-model initial-duration <model>
@@ -127,3 +131,39 @@ M: model-model model-changed
 
 : has-audio? ( clip-display -- path/f )
     clip>> audio-path>> dup +no-audio+? [ drop f ] when ;
+
+! * Sequence modification
+: connect-insert-nth ( clip n clip-displays -- clip-displays )
+    [ nth prev>> swap connect-clip-displays ]
+    [ nth connect-clip-displays ]
+    [ insert-nth ] 3tri ;
+
+: insert-clip-before ( clip old clip-displays -- clip-displays )
+    [ index ] [ connect-insert-nth ] bi ;
+
+: append-clip ( clip clip-displays -- clip-displays )
+    [ 1array ] [ [ length 1 - ] keep connect-insert-nth ] if-empty ;
+
+: connect-or-append ( clip n clip-displays -- clip-displays )
+    2dup length >= [ nip append-clip ] [ connect-insert-nth ] if ;
+
+: insert-clip-after ( clip old clip-displays -- clip-displays )
+    [ index 1 + ] [ connect-or-append ] bi ;
+
+: find-successor ( clip clip-displays -- clip/f )
+    [ prev>> = ] with find nip ;
+
+: disconnect-prev ( clip -- )
+    no-predecessor-clip get swap connect-clip-displays ;
+
+: remove-clip ( clip clip-displays -- clip-displays )
+    [ drop [ prev>> ] [ disconnect-prev ] bi ]
+    [ find-successor [ connect-clip-displays ] [ drop ] if* ]
+    [ remove ] 2tri ;
+
+: replace-clip ( clip old clip-displays -- clip-displays )
+    [ drop prev>> ]
+    [ remove-clip ] 2bi insert-clip-after ;
+
+: first-clip? ( clip -- ? )
+    prev>> prev>> not ;

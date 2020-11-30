@@ -1,8 +1,8 @@
-USING: accessors arrays audio cairo-gadgets cairo.ffi calendar formatting
-io.directories io.launcher io.pathnames kernel locals make math math.functions
-math.parser models namespaces sequences stroke-unit.clip-renderer
-stroke-unit.clips stroke-unit.models.clip-display stroke-unit.strokes
-stroke-unit.util vectors xml.data ;
+USING: accessors arrays cairo-gadgets cairo.ffi formatting io.directories
+io.launcher io.pathnames kernel make math math.functions math.parser namespaces
+sequences stroke-unit.clip-renderer stroke-unit.clips stroke-unit.elements
+stroke-unit.elements.images stroke-unit.models.clip-display stroke-unit.strokes
+stroke-unit.util threads xml.data xml.traversal ;
 
 IN: stroke-unit.page.renderer
 
