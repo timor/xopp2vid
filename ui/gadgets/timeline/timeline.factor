@@ -1,6 +1,7 @@
 USING: accessors arrays colors.constants combinators controls kernel math
 math.order math.vectors models sequences stroke-unit.util ui.gadgets
-ui.gadgets.border-handles ui.gadgets.private ui.gadgets.tracks ui.pens.solid ;
+ui.gadgets.border-handles ui.gadgets.private ui.gadgets.tracks ui.gestures
+ui.pens.solid ;
 
 IN: ui.gadgets.timeline
 
@@ -13,7 +14,8 @@ TUPLE: timeline < track
     handle-width
     ;
 
-TUPLE: drag-handle < drag-control ;
+TUPLE: drag-handle < gadget last-value ;
+INSTANCE: drag-handle drag-control
 <PRIVATE
 MEMO: drag-handle-pen ( -- pen ) COLOR: black 0.15 alpha-color <solid> ;
 
@@ -23,6 +25,7 @@ MEMO: drag-handle-pen ( -- pen ) COLOR: black 0.15 alpha-color <solid> ;
 : square ( x -- dim ) dup 2array ; inline
 PRIVATE>
 DEFER: find-slide-wrapper
+M: drag-handle update-value drop + ; inline
 M: drag-handle loc>value
     find-slide-wrapper
     [ orientation>> vdot ]
@@ -34,6 +37,8 @@ DEFER: wrapper-drag-ended
 DEFER: wrapper-drag-started
 M: drag-handle drag-ended parent>> wrapper-drag-ended ;
 M: drag-handle drag-started parent>> wrapper-drag-started ;
+
+drag-handle drag-control-gestures set-gestures
 
 TUPLE: slide-wrapper < border-handle timescale drag-model ;
 : find-slide-wrapper ( gadget -- gadget/f )

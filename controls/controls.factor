@@ -1,4 +1,5 @@
-USING: accessors kernel math models ui.gadgets ui.gadgets.private ui.gestures ;
+USING: accessors kernel math.vectors models ui.gadgets ui.gadgets.private
+ui.gestures ;
 
 IN: controls
 
@@ -24,37 +25,42 @@ M: control model-changed nip on-value-change ;
     control control-value quot call
     control ?set-control-value ; inline
 
+:: ?change-model-value ( model quot: ( ..a value -- ..b value' ) -- )
+    model value>> quot call
+    model ?set-model ; inline
+
 ! * Drag-controls
 ! Model is a value intended to be used for relayouting
-TUPLE: drag-control < gadget last-value ;
-INSTANCE: drag-control control
+MIXIN: drag-control
+SLOT: last-value
 GENERIC: drag-started ( value control -- )
 GENERIC: drag-value-changed ( value control -- )
 GENERIC: drag-ended ( value control -- )
+GENERIC: update-value ( last-value new-value control -- value )
 ! Relative conversion between mouse deltas and model values
 GENERIC: loc>value ( loc control -- value )
-M: drag-control drag-started 2drop ;
-M: drag-control drag-value-changed set-control-value ;
-M: drag-control drag-ended 2drop ;
-M: drag-control loc>value drop ;
-<PRIVATE
+M: drag-control drag-started 2drop ; inline
+M: drag-control drag-value-changed set-control-value ; inline
+M: drag-control drag-ended 2drop ; inline
+M: drag-control loc>value drop ; inline
+M: drag-control update-value drop v+ ; inline
 : begin-drag ( control -- )
     [ control-value ] keep
     [ last-value<< ]
     [ drag-started ] 2bi ;
 : do-drag ( control -- )
     [ drag-loc swap loc>value ]
-    [ last-value>> + ]
+    [ [ last-value>> ] keep update-value ]
     [ drag-value-changed ] tri ;
 : end-drag ( control -- )
     [ control-value ] [ drag-ended ] bi ;
-PRIVATE>
 
-drag-control H{
-    { T{ button-down } [ begin-drag ] }
-    { T{ button-up } [ end-drag ] }
+CONSTANT: drag-control-gestures
+H{
+    { T{ button-down f f 1 } [ begin-drag ] }
+    { T{ button-up f f 1 } [ end-drag ] }
     { T{ drag } [ do-drag ] }
-} set-gestures
+}
 
 ! * Control gadget protocol
 
