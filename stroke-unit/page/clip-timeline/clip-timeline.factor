@@ -2,10 +2,9 @@ USING: accessors arrays audio audio.player-gadget calendar colors.constants
 combinators continuations formatting images images.viewer images.viewer.private
 io.pathnames kernel math math.order math.rectangles models models.arrow
 models.arrow.smart models.async models.selection opengl.textures sequences
-stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util ui.gadgets
+stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util timers ui.gadgets
 ui.gadgets.labels ui.gadgets.model-children ui.gadgets.scrollers
-ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid
-ui.render ;
+ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.pens.solid ui.render ;
 
 IN: stroke-unit.page.clip-timeline
 
@@ -113,9 +112,21 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
 TUPLE: clip-timeline < timeline parameters ;
 INSTANCE: clip-timeline model-children
 
+<PRIVATE
+! HACK: gadget empty when called, better: inhibit reaction to scrolling when parent is being rebuilt
+: scroll-bounds ( gadget --  )
+    [ [ dim>> { 0 0 } swap <rect> ] keep scroll>rect ] curry 0.1 seconds later drop ;
+PRIVATE>
+TUPLE: scroll-to-select-border < selectable-border ;
+M: scroll-to-select-border selection-changed
+    [ call-next-method ] 2keep
+    swap [ scroll-bounds ] [ drop ] if ;
+: <scroll-to-select-border> ( model item child -- gadget )
+    scroll-to-select-border new-selectable-border ;
+
 M:: clip-timeline child-model>gadget ( model gadget -- gadget )
     gadget parameters>> model <clip-timeline-preview>
-    [ gadget find-selection model ] dip <selectable-border> ;
+    [ gadget find-selection model ] dip <scroll-to-select-border> { 1 1 } >>fill ;
 
 M: clip-timeline add-model-children
     swap [ dup gadget-child clip-display>> draw-duration-model>> timeline-add ] each ;

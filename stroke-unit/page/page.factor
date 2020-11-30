@@ -1,9 +1,9 @@
 USING: accessors animators arrays audio.engine calendar combinators
-combinators.short-circuit formatting grouping io.backend io.directories
-io.encodings.binary io.files io.files.temp io.launcher io.pathnames kernel math
-models models.arrow models.model-slots models.selection namespaces prettyprint
-sequences serialize stroke-unit.clip-renderer stroke-unit.clips
-stroke-unit.elements stroke-unit.models.clip-display
+combinators.short-circuit continuations formatting grouping io.backend
+io.directories io.encodings.binary io.files io.files.temp io.launcher
+io.pathnames kernel math models models.arrow models.model-slots models.selection
+namespaces prettyprint sequences serialize stroke-unit.clip-renderer
+stroke-unit.clips stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
 stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.util timers
 ui.gadgets ui.gadgets.colon-wrapper ui.gadgets.labels ui.gadgets.model-children
@@ -191,17 +191,44 @@ ERROR: no-focused-clip ;
     [ [ draw-duration!>> ] bi@ + ] 2bi
     <duration-clip-display> ;
 
+
 : editor-merge-left ( gadget -- )
-    [ [ [ prev>> ] keep [ <merged-clip-display> dup ] keep ] dip
-      replace-clip ] change-clips-with-focused select-clip ;
+    dup get-focused-clip first-clip?
+    [ drop ]
+    [ [| clip seq | clip prev>> :> prev
+       prev clip <merged-clip-display> :> new
+       clip seq remove-clip
+       [ new dup prev ] dip replace-clip
+      ] change-clips-with-focused select-clip ] if ;
+    ! dup get-focused-clip dup first-clip?
+    ! [ 2drop ]
+    ! [| gadget clip |
+    !  clip prev>> :> prev
+    !  clip prev <merged-clip-display> :> new
+    !  gadget [
+    !      remove-clip
+    !      [ prev new ] dip replace-clip
+    !  ] change-clips-with-focused
+    !  new swap select-clip
+    ! ] if ;
+!     ! [ [ [ prev>> ] keep [ <merged-clip-display> dup ] keep ] dip
+!     !   replace-clip ] change-clips-with-focused select-clip ;
+:: ensure-focused-clip ( gadget -- clip-display )
+    gadget clip-displays>> first :> clip1
+    [ gadget get-focused-clip ]
+    [ dup no-focused-clip?
+      [ drop clip1 gadget select-clip
+        clip1
+      ] [ rethrow ] if
+    ] recover ;
 
 : editor-focus-next ( gadget -- )
-    [ get-focused-clip ]
+    [ ensure-focused-clip ]
     [ clip-displays>> find-successor ]
     [ over [ select-clip ] [ 2drop ] if ] tri ;
 
 : editor-focus-prev ( gadget -- )
-    [ get-focused-clip ]
+    [ ensure-focused-clip ]
     [ over first-clip?
       [ 2drop ]
       [ [ prev>> ] dip select-clip ] if
@@ -212,22 +239,22 @@ ERROR: no-focused-clip ;
     swap page-parameters>> timescale>> set-model ;
 
 : focused-clip-position ( gadget -- position )
-    [ page-parameters>> current-time>> ]
+    [ page-parameters>> current-time>> compute-model ]
     [ get-focused-clip [ start-time!>> ] [ draw-duration>> ] bi ] bi
     (clip-position) ;
 
 ! TODO: inline if we need to reach below stack
 :: replace-clip-2 ( gadget quot: ( gadget clip-display -- cd1 cd2 ) -- )
-    gadget
-    [| clip seq |
-     gadget clip quot call( x x -- x x ) :> ( c1 c2 )
-     c1 clip seq replace-clip
-     [ c1 c2 over ] dip insert-clip-after
-     ! c1 swap
-    ] change-clips-with-focused select-clip ;
+    gadget dup get-focused-clip dup :> clip quot call( x x -- x x ) :> ( cd1 cd2 )
+    gadget [| clip seq |
+            cd1 clip seq replace-clip
+            [ cd2 cd1 ] dip insert-clip-after
+            cd2 swap
+    ] change-clips-with-focused
+    select-clip ;
 
 : editor-split-focused-clip ( gadget -- )
-    [ [ focused-clip-position ] dip <split-clip-display> ]
+    [ [ focused-clip-position ] dip swap <split-clip-display> ]
     replace-clip-2 ;
 
 : can-split-focused-clip? ( gadget -- ? )
@@ -350,14 +377,14 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     quicksave-path get load-clip-displays swap
     [ clip-displays>> set-model ] [ relayout ] bi ;
 
-! Replace with something better
+! TODO Replace with something better
 : editor-update-range ( gadget -- )
-    [ clip-displays>> compute-model recompute-page-duration ]
+    [ clip-displays>> recompute-page-duration ]
     [ children>> but-last-slice last model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
     dup get-focused-clip [ f >>audio ] change-clip drop
-    [ clip-displays>> [ compute-model ] [ set-model ] bi ]
+    [ [ ] change-clip-displays drop ]
     [ editor-update-range ]
     [ relayout ] tri ;
 
@@ -390,10 +417,12 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ over [ focus-pause-after/create draw-duration<< ] [ 2drop ] if ] bi ;
 
 : editor-set-stroke-speed-factor ( gadget factor -- )
-    [
-        swapd stroke-speed get *
-        set-stroke-speed
-    ] curry change-clips-with-focused drop ;
+    stroke-speed get *
+    swap get-focused-clip set-stroke-speed ;
+    ! [
+    !     swapd stroke-speed get *
+    !     set-stroke-speed
+    ! ] curry change-clips-with-focused drop ;
 
 ! Set current clip duration to audio duration
 : editor-match-audio ( gadget -- )

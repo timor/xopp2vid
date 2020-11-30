@@ -1,7 +1,6 @@
-USING: accessors calendar combinators.short-circuit grouping io.pathnames kernel
-locals math math.order math.rectangles namespaces sequences
-stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
-stroke-unit.util xml.syntax ;
+USING: accessors combinators.short-circuit grouping io.pathnames kernel math
+math.order math.rectangles namespaces sequences stroke-unit.clip-renderer
+stroke-unit.elements stroke-unit.strokes stroke-unit.util xml.syntax ;
 
 IN: stroke-unit.clips
 SINGLETON: +no-audio+
@@ -113,16 +112,15 @@ TAG: image change-current-clip drop ;
 : clip-split-half ( clip -- clip-before clip-after )
     [ elements>> dup length 2/ cut-slice ]
     [ make-2-clips ] bi ;
-    ! tri swap ;
 
 : clip-divide-vertical ( clip -- clip-above clip-below )
     [ clip-rect rect-center second ]
-    [ elements>> [ element-rect rect-center second < ] with partition ]
+    [ elements>> [ element-rect rect-center second > ] with partition ]
     [ make-2-clips ] tri ;
 
-: clip-divide-horizontal ( clip -- clip-above clip-below )
+: clip-divide-horizontal ( clip -- clip-left clip-right )
     [ clip-rect rect-center first ]
-    [ elements>> [ element-rect rect-center first < ] with partition ]
+    [ elements>> [ element-rect rect-center first > ] with partition ]
     [ make-2-clips ] tri ;
 
 ERROR: cannot-merge-different-audio audio1 audio2 ;
@@ -130,10 +128,7 @@ ERROR: cannot-merge-different-audio audio1 audio2 ;
     [ audio-path>> ] bi@
     2dup { [ [ +no-audio+? not ] both? ] [ = not ] } 2&& [ cannot-merge-different-audio ] when
     [ dup +no-audio+? [ drop f ] when ] bi@ or
-    +no-audio+ or
-    ;
-    ! [ or ] [ eq? ] 2bi
-    ! over and [ cannot-merge-different-audio ] when ;
+    +no-audio+ or ;
 
 ! clone clip1 and append elements from clip2
 : clip-merge ( clip1 clip2 -- clip )
@@ -141,8 +136,6 @@ ERROR: cannot-merge-different-audio audio1 audio2 ;
     [ [ elements>> ] bi@ append  >>elements ]
     [ merged-audio-path >>audio-path ]
     [ [ audio>> ] bi@ or >>audio ] 2tri ;
-    ! 2dup [ audio>> ] bi@ { [ ] [ = not ] } 2&&
-    ! swap clone [ swap elements>> append ] change-elements ;
 
 ! * Audio
 

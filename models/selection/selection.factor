@@ -1,5 +1,6 @@
 USING: accessors arrays kernel models models.model-slots models.product
-sequences ui.gadgets ui.gadgets.borders ui.gestures ui.pens.solid ui.theme ;
+sequences stroke-unit.util ui.gadgets ui.gadgets.borders ui.gestures
+ui.pens.solid ui.theme ;
 
 IN: models.selection
 
@@ -72,7 +73,7 @@ M: selection-control model-changed
 ! * Wrapper gadgets that control/display selection status
 ! Model: sequence of items
 <PRIVATE
-MEMO: selected-pen ( -- pen ) selection-color <solid> ;
+MEMO: selected-pen ( -- pen ) selection-color 0.6 alpha-color <solid> ;
 PRIVATE>
 TUPLE: selectable-border < border item ;
 INSTANCE: selectable-border selection-control

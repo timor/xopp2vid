@@ -7,6 +7,8 @@ IN: ui.gadgets.model-children
 ! gadget instances, which are cached based on grafting/ungrafting
 MIXIN: model-children
 GENERIC: child-model>gadget ( model gadget -- gadget )
+
+! Called if a sequence of gadgets needs to be added to the parent gadget
 GENERIC: add-model-children ( seq gadget -- gadget )
 <PRIVATE
 SYMBOL: gadget-cache
