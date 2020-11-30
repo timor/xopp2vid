@@ -150,6 +150,15 @@ SYMBOL: last-stroke
 : cairo-move-loc ( loc -- )
     cr swap first2 [ neg ] bi@ cairo_translate ;
 
+! TODO: change to element-image? This is actually very close to cairo-gadget...
+:: stroke-image ( stroke -- image )
+    stroke stroke-rect rect-bounds ceiling-dim
+    [
+        [ cairo-move-loc ] dip
+        stroke draw-stroke
+        surface>image
+    ] with-image-surface ;
+
 : clip-image ( clip -- image )
     dup clip-rect rect-bounds ceiling-dim
     [

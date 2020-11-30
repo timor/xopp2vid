@@ -1,14 +1,16 @@
 USING: accessors animators arrays audio.engine calendar combinators
 combinators.short-circuit continuations formatting grouping io.backend
 io.directories io.encodings.binary io.files io.files.temp io.launcher
-io.pathnames kernel math models models.arrow models.model-slots models.selection
-namespaces prettyprint sequences serialize stroke-unit.clip-renderer
-stroke-unit.clips stroke-unit.elements stroke-unit.models.clip-display
+io.pathnames kernel math math.rectangles models models.arrow models.model-slots
+models.selection namespaces prettyprint sequences serialize
+stroke-unit.clip-renderer stroke-unit.clips stroke-unit.clips.clip-maker
+stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
 stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.util timers
-ui.gadgets ui.gadgets.colon-wrapper ui.gadgets.labels ui.gadgets.model-children
-ui.gadgets.packs ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline
-ui.gadgets.tracks ui.gestures ui.tools.inspector vectors xopp.file ;
+ui.gadgets ui.gadgets.colon-wrapper ui.gadgets.glass ui.gadgets.labels
+ui.gadgets.model-children ui.gadgets.packs ui.gadgets.scrollers
+ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks ui.gestures
+ui.tools.inspector vectors xopp.file ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
@@ -191,7 +193,6 @@ ERROR: no-focused-clip ;
     [ [ draw-duration!>> ] bi@ + ] 2bi
     <duration-clip-display> ;
 
-
 : editor-merge-left ( gadget -- )
     dup get-focused-clip first-clip?
     [ drop ]
@@ -200,19 +201,7 @@ ERROR: no-focused-clip ;
        clip seq remove-clip
        [ new dup prev ] dip replace-clip
       ] change-clips-with-focused select-clip ] if ;
-    ! dup get-focused-clip dup first-clip?
-    ! [ 2drop ]
-    ! [| gadget clip |
-    !  clip prev>> :> prev
-    !  clip prev <merged-clip-display> :> new
-    !  gadget [
-    !      remove-clip
-    !      [ prev new ] dip replace-clip
-    !  ] change-clips-with-focused
-    !  new swap select-clip
-    ! ] if ;
-!     ! [ [ [ prev>> ] keep [ <merged-clip-display> dup ] keep ] dip
-!     !   replace-clip ] change-clips-with-focused select-clip ;
+
 :: ensure-focused-clip ( gadget -- clip-display )
     gadget clip-displays>> first :> clip1
     [ gadget get-focused-clip ]
@@ -365,7 +354,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     { [ xopp-file>> >>xopp-file ]
       [ page>> >>page ]
       [ output-path>> >>output-dir ]
-      [ clip/durations>> unbake-clips swap clip-displays>> set-model ]
+      [ clip/durations>> unbake-clips swap clip-displays<< ]
     } cleave ;
 
 : editor-load ( gadget path -- )
@@ -419,10 +408,6 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 : editor-set-stroke-speed-factor ( gadget factor -- )
     stroke-speed get *
     swap get-focused-clip set-stroke-speed ;
-    ! [
-    !     swapd stroke-speed get *
-    !     set-stroke-speed
-    ! ] curry change-clips-with-focused drop ;
 
 ! Set current clip duration to audio duration
 : editor-match-audio ( gadget -- )
@@ -479,6 +464,24 @@ ERROR: no-output-dir ;
     swap page-parameters>> draw-scale>>
     [ compute-model + ] [ set-model ] bi ;
 
+! * Open clip-maker to select strokes which to split off into a new clip
+
+:: clip-maker-callback ( clip-display gadget -- quot )
+    [| strokes | clip-display strokes remove-strokes gadget push-kill ] ;
+
+: <current-clip-maker> ( gadget -- obj )
+    [ get-focused-clip ] keep
+    [ drop clip>> clip-strokes ]
+    [ clip-maker-callback ] 2bi <clip-maker> ;
+
+: show-clip-display-editor ( gadget -- )
+    [ canvas-gadget ]
+    [ <current-clip-maker> ]
+    bi <zero-rect> show-glass ;
+
+: editor-extract-strokes ( gadget -- )
+    show-clip-display-editor ;
+
 ! * Editor Keybindings
 
 page-editor H{
@@ -523,4 +526,5 @@ page-editor H{
     { T{ key-down f { C+ } "=" } [ 0.1 editor-change-draw-scale ] }
     { T{ key-down f { C+ } "-" } [ -0.1 editor-change-draw-scale ] }
     { T{ key-down f { C+ } "d" } [ drop hand-gadget get ui.tools.inspector:inspector ] }
+    { T{ key-down f f "i" } [ editor-extract-strokes ] }
 } set-gestures

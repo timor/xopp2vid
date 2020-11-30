@@ -1,7 +1,7 @@
 USING: accessors arrays io.directories kernel math math.combinators
 math.functions math.order models models.arrow models.arrow.smart
 models.model-slots models.product namespaces sequences sequences.generalizations
-stroke-unit.clips ;
+sets stroke-unit.clips vectors ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
@@ -132,6 +132,11 @@ M: model-model model-changed
 
 : has-audio? ( clip-display -- path/f )
     clip>> audio-path>> dup +no-audio+? [ drop f ] when ;
+
+:: remove-strokes ( clip-display strokes -- clip-display' )
+    clip-display [ [ strokes diff >vector ] change-elements ] change-clip drop
+    clip-display clone-clip-display
+    <empty-clip> strokes >>elements >>clip ;
 
 ! * Sequence modification
 

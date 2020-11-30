@@ -7,6 +7,9 @@ IN: stroke-unit.page.tests
     "~/xournalpp/uebungen/1.3.xopp" file>xopp
     pages first page-clips 10 head ;
 
+: test-strokes ( -- seq )
+    test-clips [ clip-strokes ] map concat ;
+
 : clip-view-test ( -- views parameters gadget time )
     test-clips initialize-clips
     <page-parameters> 2dup swap first

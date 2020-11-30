@@ -1,6 +1,6 @@
-USING: accessors arrays base64 cairo-gadgets cairo.ffi cairo.surface-renderer
-combinators images images.loader images.normalization images.png kernel locals
-math math.parser math.rectangles stroke-unit.util xml.data xml.traversal ;
+USING: accessors arrays base64 cairo-gadgets cairo.ffi combinators images
+images.loader images.normalization images.png kernel math math.parser
+math.rectangles stroke-unit.util ui.gadgets.desks xml.data xml.traversal ;
 
 IN: stroke-unit.elements.images
 

@@ -1,5 +1,6 @@
 USING: accessors arrays kernel models models.model-slots models.product
 sequences stroke-unit.util ui.gadgets ui.gadgets.borders ui.gestures
+ui.gadgets.wrappers
 ui.pens.solid ui.theme ;
 
 IN: models.selection
@@ -24,6 +25,9 @@ MODEL-SLOT: selection [ dependencies>> second ] selected
 
 : select-item ( item selection -- )
     dup multi?>> [ select-nonexclusive ] [ select-exclusive ] if ;
+
+: select-items ( items selection -- )
+    dup multi?>> [ ?selected<< ] [ [ first ] dip select-exclusive ] if ;
 
 : deselect-item ( item selection -- )
     [ remove ] change-selected drop ;
@@ -90,6 +94,26 @@ M: selectable-border selection-changed
 ! Gesture handling is a bit strange still: We do handle the button-down, while
 ! any child-button handles the button-up event?
 selectable-border H{
+    { T{ button-down f f 1 } [ notify-select-click ] }
+    { T{ button-down f { C+ } 1 } [ notify-select-ctrl-click ] }
+    { T{ button-up f { C+ } 1 } [ drop ] }
+} set-gestures
+
+TUPLE: selectable-wrapper < ui.gadgets.wrappers:wrapper item ;
+INSTANCE: selectable-wrapper selection-control
+M: selectable-wrapper selection-changed
+    swap selected-pen f ? >>interior relayout-1 ;
+
+: new-selectable-wrapper ( selection item child class -- selectable-wrapper )
+    new-wrapper swap >>item
+    swap >>model ;
+
+: <selectable-wrapper> ( selection item child -- gadget )
+    selectable-wrapper new-selectable-wrapper ;
+
+! Gesture handling is a bit strange still: We do handle the button-down, while
+! any child-button handles the button-up event?
+selectable-wrapper H{
     { T{ button-down f f 1 } [ notify-select-click ] }
     { T{ button-down f { C+ } 1 } [ notify-select-ctrl-click ] }
     { T{ button-up f { C+ } 1 } [ drop ] }

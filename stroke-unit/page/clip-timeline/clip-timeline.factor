@@ -12,6 +12,7 @@ IN: stroke-unit.page.clip-timeline
 TUPLE: clip-timeline-preview < image-control clip-display ;
 
 M: clip-timeline-preview draw-gadget*
+    dup ?update-texture
     dup image>>
     [ [ [ image-gadget-texture ] [ dim>> ] bi ]
       [ images:image-dim adjust-image-dim ] bi*
