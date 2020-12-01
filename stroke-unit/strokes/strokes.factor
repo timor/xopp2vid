@@ -48,13 +48,17 @@ M: stroke draw-stroke
     [ set-stroke-params ]
     [ [ draw-segment ] each ] bi* ;
 
-: stroke-rect ( stroke -- rect )
+: (stroke-rect) ( stroke -- rect )
     ! stroke-segments [ second ] <map> concat rect-containing ; inline
     stroke-segments [ second ] map concat rect-containing ; inline
 
 : strokes-rect ( strokes -- rect )
     [ <zero-rect> ]
-    [ [ stroke-rect ] [ rect-union ] map-reduce ] if-empty ;
+    [ [ (stroke-rect) ] [ rect-union ] map-reduce ] if-empty
+    ! TODO: Check for errors because loc can become negative after padding
+    1 pad-rect ;
+
+: stroke-rect ( stroke -- rect ) 1array strokes-rect ;
 
 : strokes-dim ( strokes -- dim ) strokes-rect dim>> [ ceiling >integer ] map ;
 

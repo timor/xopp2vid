@@ -527,4 +527,6 @@ page-editor H{
     { T{ key-down f { C+ } "-" } [ -0.1 editor-change-draw-scale ] }
     { T{ key-down f { C+ } "d" } [ drop hand-gadget get ui.tools.inspector:inspector ] }
     { T{ key-down f f "i" } [ editor-extract-strokes ] }
+    { T{ key-down f f "r" } [ editor-reorder-clip-horizontal ] }
+    { T{ key-down f f "R" } [ editor-reorder-clip-vertical ] }
 } set-gestures

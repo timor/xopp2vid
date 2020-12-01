@@ -3,8 +3,8 @@ byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar calendar.format
 classes.struct colors columns combinators combinators.short-circuit
 continuations destructors endian grouping images images.memory.private
 io.backend io.directories io.files io.files.info io.streams.string kernel math
-math.functions math.order math.vectors namespaces sequences sequences.mapped
-strings threads xml xml.data xml.traversal ;
+math.functions math.order math.rectangles math.vectors namespaces sequences
+sequences.mapped strings threads xml xml.data xml.traversal ;
 
 IN: stroke-unit.util
 
@@ -18,6 +18,11 @@ IN: stroke-unit.util
 : rect-scale ( rect factor -- rect' )
     [ clone ] dip
     '[ _ v*n ] [ change-dim ] [ change-loc ] bi ;
+
+:: pad-rect ( rect n -- rect' )
+    rect rect-bounds
+    [ n v-n ]
+    [ n 2 * v+n ] bi* <rect> ;
 
 SYMBOL: current-audio-folder
 

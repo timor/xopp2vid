@@ -1,6 +1,7 @@
 USING: accessors combinators.short-circuit grouping io.pathnames kernel math
-math.order math.rectangles namespaces sequences stroke-unit.clip-renderer
-stroke-unit.elements stroke-unit.strokes stroke-unit.util xml.syntax ;
+math.order math.rectangles namespaces sequences sorting
+stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
+stroke-unit.util xml.syntax ;
 
 IN: stroke-unit.clips
 SINGLETON: +no-audio+
@@ -97,6 +98,12 @@ TAG: image change-current-clip drop ;
 
 ! Create new clips with subsets of elements before and after position
 ! audio removed for the second one
+: clip-elements-until-position ( clip position -- elements )
+    dup 1.0 >=
+    [ drop elements>> ]
+    [ dupd clip-find-offset-stroke
+      swap elements>> [ index ] keep swap head-slice ] if ;
+
 : clip-split-at ( clip position -- clip-before clip-after )
     [ clone dup ] dip clip-find-offset-stroke
     over elements>> [ index ] keep swap cut-slice
@@ -123,6 +130,18 @@ TAG: image change-current-clip drop ;
     [ elements>> [ element-rect rect-center first > ] with partition ]
     [ make-2-clips ] tri ;
 
+: element-center-x<=> ( elt1 elt2 -- <=> )
+    [ element-rect rect-center first ] bi@ <=> ;
+
+: element-center-y<=> ( elt1 elt2 -- <=> )
+    [ element-rect rect-center second ] bi@ <=> ;
+
+: clip-reorder-horizontal ( clip -- clip' )
+    clone [ [ element-center-x<=> ] sort ] change-elements ;
+
+: clip-reorder-vertical ( clip -- clip' )
+    clone [ [ element-center-y<=> ] sort ] change-elements ;
+
 ERROR: cannot-merge-different-audio audio1 audio2 ;
 : merged-audio-path ( clip1 clip2 -- audio )
     [ audio-path>> ] bi@
@@ -139,9 +158,16 @@ ERROR: cannot-merge-different-audio audio1 audio2 ;
 
 ! * Audio
 
+: invalid-audio-path? ( audio-path -- ? )
+    { [ +no-audio+? ]
+      [ empty? ]
+      [ exists? not ]
+    } 1|| ;
+
+
 : load-audio ( clip -- audio/f )
     dup audio>> [ nip ] [
-        dup audio-path>> dup { [ +no-audio+? ] [ empty? ] } 1|| [ 2drop f ]
+        dup audio-path>> dup invalid-audio-path? [ 2drop f ]
         [ ogg>audio
           >>audio audio>> ] if
     ] if* ;
