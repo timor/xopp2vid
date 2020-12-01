@@ -1,7 +1,8 @@
-USING: accessors audio.wav calendar endian formatting io io.encodings.binary
-io.encodings.utf8 io.launcher kernel math math.functions models models.arrow
-models.model-slots sequences system threads timers ui.gadgets ui.gadgets.buttons
-ui.gadgets.labels ui.gadgets.packs ;
+USING: accessors audio.wav calendar combinators combinators.short-circuit endian
+formatting io io.encodings.binary io.encodings.utf8 io.launcher kernel libc math
+math.functions models models.arrow models.model-slots sequences system threads
+timers ui.gadgets ui.gadgets.buttons ui.gadgets.labels ui.gadgets.packs unix.ffi
+unix.process ;
 
 IN: audio.recorder
 
@@ -57,7 +58,7 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
     } case io-error ;
 
 : when-process* ( process quot -- )
-    over process-running? [ call ] [ 2drop ] if ; inline
+    over { [ process? ] [ process-running? ] } 1&& [ call ] [ 2drop ] if ; inline
 
 : stop-recording ( gadget -- )
     process>> [ SIGINT signal-process ] when-process* ;
