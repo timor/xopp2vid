@@ -1,8 +1,8 @@
 USING: accessors arrays cairo cairo-gadgets cairo.ffi colors.constants
 combinators.short-circuit formatting images images.memory.private io.pathnames
-kernel locals make math math.rectangles math.vectors memoize namespaces
-sequences stroke-unit.elements.images stroke-unit.strokes stroke-unit.util
-vectors ;
+kernel make math math.rectangles math.vectors namespaces sequences
+stroke-unit.elements stroke-unit.elements.images stroke-unit.strokes
+stroke-unit.util vectors ;
 
 IN: stroke-unit.clip-renderer
 
@@ -30,7 +30,8 @@ MEMO: (frame-time) ( fps -- seconds ) recip ;
 : clip-images ( clip -- image-elts ) elements>> [ image-elt? ] filter ;
 
 : clip-rect ( clip -- rect )
-    clip-strokes strokes-rect scale-factor get rect-scale ;
+    elements>> elements-rect scale-factor get rect-scale ;
+    ! clip-strokes strokes-rect scale-factor get rect-scale ;
 
 : surface-dim ( surface -- dim )
     [ cairo_image_surface_get_width ]
@@ -98,6 +99,7 @@ SYMBOL: last-stroke
     ! V{ } clone stroke-nums set
     ! 0 stroke-num set
     [ dim [| surface |
+           surface add-frame
            0 segment-timer set
            last-stroke off
            cr loc first2 [ neg ] bi@ cairo_translate

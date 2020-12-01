@@ -2,8 +2,8 @@
 ! See http://factorcode.org/license.txt for BSD license.
 USING: accessors arrays cairo cairo-gadgets cairo.ffi colors.hex grouping kernel
 math math.functions math.parser math.rectangles math.vectors sequences
-sequences.zipped splitting stroke-unit.elements ui.gadgets.desks xml.data
-xml.traversal ;
+sequences.zipped splitting stroke-unit.elements stroke-unit.util
+ui.gadgets.desks xml.data xml.traversal ;
 IN: stroke-unit.strokes
 
 : string>numbers ( str -- seq )
@@ -62,23 +62,8 @@ M: stroke draw-stroke
 
 : strokes-dim ( strokes -- dim ) strokes-rect dim>> [ ceiling >integer ] map ;
 
-! : stroke-element? ( xml -- ? ) "stroke" assure-name swap tag-named? ; inline
-
 M: stroke element-rect stroke-rect ;
-
-! Presenting a single stroke at it's actual position, parent object responsible for supplying enough drawing space
-! TUPLE: stroke-gadget < stroke ;
-! ! TUPLE: stroke-gadget < gadget stroke ;
-! ! INSTANCE: stroke-gadget cairo-render-gadget
-! : <stroke-gadget> ( stroke -- obj ) 1array <cairo-renderer> stroke-gadget new swap >>stroke ;
 
 M: stroke pref-rect* 1array strokes-rect ;
 M: stroke pref-loc* pref-rect* loc>> ;
 M: stroke render-cairo* draw-stroke ;
-
-! M: stroke-gadget render-cairo*
-!     stroke>> draw-stroke ;
-    ! [ stroke>> [
-    !     stroke-rect loc>>
-    !     cr swap first2 [ neg ] bi@ cairo_translate
-    ! ] [ draw-stroke ] bi ] with-saved-cairo-matrix ;

@@ -1,10 +1,11 @@
-USING: accessors alien alien.data arrays audio audio.engine audio.vorbis
-byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar calendar.format
-classes.struct colors columns combinators combinators.short-circuit
-continuations destructors endian grouping images images.memory.private
-io.backend io.directories io.files io.files.info io.streams.string kernel math
-math.functions math.order math.rectangles math.vectors namespaces sequences
-sequences.mapped strings threads xml xml.data xml.traversal ;
+USING: accessors alien alien.data arrays audio audio.engine audio.loader
+audio.vorbis byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar
+calendar.format classes.struct colors columns combinators
+combinators.short-circuit continuations destructors endian grouping images
+images.memory.private io.backend io.directories io.files io.files.info
+io.streams.string kernel math math.functions math.order math.rectangles
+math.vectors namespaces sequences sequences.mapped strings threads xml xml.data
+xml.traversal ;
 
 IN: stroke-unit.util
 
@@ -44,6 +45,7 @@ fps [ 25 ] initialize
         @
     ] with-destructors ; inline
 
+! calls quot with surface, cr is set during drawing
 :: with-image-surface ( dim quot -- )
     [
         dim malloc-bitmap-data :> bitmap-data
@@ -92,6 +94,8 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     32768 read-vorbis-stream
     [ generator-audio-format 0 f <audio> ]
     [ ogg>pcm [ length >>size ] [ >>data ] bi ] bi ;
+
+"ogg" [ ogg>audio ] register-audio-extension
 
 : audio-duration ( audio -- duration )
     { [ size>> ]
@@ -178,6 +182,20 @@ ERROR: not-an-empty-directory path ;
       ] if
     ] [ make-directories ] if ;
 
+ERROR: file-exists path ;
+
+: ensure-empty-file-in-path ( path -- path )
+    normalize-path dup
+    [ parent-directory make-directories ]
+    [ dup exists?
+      [ dup \ file-exists boa { { "Overwrite File" t } } throw-restarts
+        [ delete-file ] [ drop ] if ]
+      [ drop ] if
+    ] bi ;
+
+: rename-file-stem ( path new -- path )
+    [ [ parent-directory ] [ file-extension ] bi ] dip
+    swap [ "." prepend append ] when* append-path ;
 
 : timestamp>filename-component ( timestamp -- string )
     [ { YYYY "-" MM "-" DD "-" hh "-" mm "-" ss } formatted ] with-string-writer ;

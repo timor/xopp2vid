@@ -1,6 +1,7 @@
 USING: accessors arrays base64 cairo-gadgets cairo.ffi combinators images
 images.loader images.normalization images.png kernel math math.parser
-math.rectangles stroke-unit.util ui.gadgets.desks xml.data xml.traversal ;
+math.rectangles stroke-unit.elements stroke-unit.util ui.gadgets.desks xml.data
+xml.traversal ;
 
 IN: stroke-unit.elements.images
 
@@ -20,6 +21,7 @@ M: image-elt pref-rect*
         [ right>> ]
         [ bottom>> 2array ]
     } cleave 2array rect-containing ;
+M: image-elt element-rect pref-rect* ;
 : png-data ( image-tag -- data ) children>string base64> ;
 
 : image-elt-width ( image-elt -- n ) [ right>> ] [ left>> ] bi - ; inline

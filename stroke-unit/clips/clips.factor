@@ -1,5 +1,5 @@
-USING: accessors combinators.short-circuit grouping io.pathnames kernel math
-math.order math.rectangles namespaces sequences sorting
+USING: accessors audio.loader combinators.short-circuit grouping io.files
+io.pathnames kernel math math.order math.rectangles namespaces sequences sorting
 stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
 stroke-unit.util xml.syntax ;
 
@@ -51,7 +51,7 @@ TAG: stroke change-current-clip stroke-audio dup empty? [ drop +no-audio+ ] [ pr
 TAG: image change-current-clip drop ;
 
 : page-clips ( xml -- clips )
-    [ layers [ strokes [
+    [ layers [ elements [
                    [ change-current-clip limit-current-clip ]
                    [ current-clips get last elements>> push ] bi
                ] each ] each
@@ -164,11 +164,10 @@ ERROR: cannot-merge-different-audio audio1 audio2 ;
       [ exists? not ]
     } 1|| ;
 
-
 : load-audio ( clip -- audio/f )
     dup audio>> [ nip ] [
         dup audio-path>> dup invalid-audio-path? [ 2drop f ]
-        [ ogg>audio
+        [ read-audio
           >>audio audio>> ] if
     ] if* ;
 

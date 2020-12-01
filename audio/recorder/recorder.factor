@@ -56,8 +56,11 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
         { +new-session+ [ killpg ] }
     } case io-error ;
 
+: when-process* ( process quot -- )
+    over process-running? [ call ] [ 2drop ] if ; inline
+
 : stop-recording ( gadget -- )
-    process>> [ SIGINT signal-process ] when* ;
+    process>> [ SIGINT signal-process ] when-process* ;
 
 :: start-with-sentinel ( gadget -- )
     gadget process>>

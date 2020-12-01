@@ -1,8 +1,8 @@
 USING: accessors arrays cairo-gadgets cairo.ffi formatting io.directories
 io.launcher io.pathnames kernel make math math.functions math.parser namespaces
-sequences stroke-unit.clip-renderer stroke-unit.clips stroke-unit.elements
+sequences stroke-unit.clip-renderer stroke-unit.clips
 stroke-unit.elements.images stroke-unit.models.clip-display stroke-unit.strokes
-stroke-unit.util threads xml.data xml.traversal ;
+stroke-unit.util threads xml.data ;
 
 IN: stroke-unit.page.renderer
 
@@ -31,7 +31,6 @@ TUPLE: render-entry elements audio ;
 C: <render-entry> render-entry
 
 :: make-render-list ( clip-displays -- seq )
-    ! V{ } clone +no-audio+ <render-entry> 1vector :> accum
     V{ } clone :> accum
     clip-displays [ dup :> display
                     [ clip>> ] [ stroke-speed!>> ] [ draw-duration>> ] tri :> ( clip speed duration )
@@ -48,16 +47,7 @@ C: <render-entry> render-entry
                     ] if
      ] each accum ;
 
-! : make-render-list ( clip-displays -- seq )
-!     render-entry
-!     V{ } clone swap
-!     [ dup pause-display?
-!       [ draw-duration>> over last [ + ] change-pause drop ]
-!       [ [ clip>> ] [ stroke-speed!>> ] bi
-!         0 render-entry boa over push
-!       ] if
-!     ] each ;
-
+! cr is bound during render-element
 GENERIC: render-element ( surface element -- )
 M: stroke render-element
     [ nip add-inter-stroke-pause ]
@@ -72,24 +62,16 @@ M: render-pause render-element
 M: speed-change render-element
     nip speed>> stroke-speed set ;
 
+M: image-elt render-element
+    nip render-cairo* ;
+
 :: render-page-clip-frames ( page dim clip-displays path -- frames )
     dim page page-dim fit-to-scale :> scale
-    page layers [ children-tags [ image-elt? ] filter ] map concat :> images
-    ! clip clip-rect rect-bounds ceiling-dim :> ( loc dim )
-    ! V{ } clone stroke-nums set
-    ! 0 stroke-num set
     [ dim [| surface |
-           ! cr loc first2 [ neg ] bi@ cairo_translate
-           ! cr scale-factor get dup cairo_scale
            cr scale dup cairo_scale
            dim draw-white-bg
            clip-displays make-render-list
-           images [ render-cairo* ] each
            [| entry i |
-            ! entry clip>> :> clip
-            ! ! clip-display clip>> compute-model :> clip
-            ! entry stroke-speed>> :> speed
-            ! clip-display stroke-speed>> compute-model :> speed
             path i "clip-%02d" sprintf append-path dup :> clip-dir
             frame-output-path set
             clip-dir make-directories
@@ -98,15 +80,6 @@ M: speed-change render-element
             last-stroke off
             entry elements>>
             [ surface swap render-element yield ] each
-            ! clip clip-strokes :> strokes
-            ! clip clip-images :> images
-            ! images [ render-cairo* surface add-frame ] each
-            ! speed stroke-speed [
-            !     strokes [
-            !         ! stroke-num inc
-            !     ] each
-            !     entry
-            ! ] with-variable
             fps get clip-dir "frame-%05d.png" append-path
             clip-dir ".mpg" append dup :> video-file render-frame-video
             entry audio>> dup +no-audio+?

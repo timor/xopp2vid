@@ -1,6 +1,6 @@
-USING: accessors animators arrays audio.engine calendar combinators
-combinators.short-circuit continuations formatting grouping io.backend
-io.directories io.encodings.binary io.files io.files.temp io.launcher
+USING: accessors animators arrays audio.engine audio.recorder calendar
+combinators combinators.short-circuit continuations formatting grouping
+io.backend io.directories io.encodings.binary io.files io.files.temp io.launcher
 io.pathnames kernel math math.rectangles models models.arrow models.model-slots
 models.selection namespaces prettyprint sequences serialize sets
 stroke-unit.clip-renderer stroke-unit.clips stroke-unit.clips.clip-maker
@@ -53,10 +53,11 @@ INSTANCE: page-editor has-selection
     range-model <page-slider> f track-add
     "stroke-unit-" temp-file now timestamp>filename-component append <model> dup :> filename-model
     >>filename
-    <shelf>
+    <shelf> { 10 10 } >>gap
     filename-model <label-control> add-gadget
     index-model [ unparse ] <arrow> <label-control> add-gadget
     f track-add
+    "default" <recorder-gadget> f track-add
     page-parameters >>page-parameters ;
 
 : <page-editor> ( page -- gadget )
@@ -66,6 +67,11 @@ INSTANCE: page-editor has-selection
 
 : canvas-gadget ( editor -- gadget ) children>> first ;
 : timeline-gadget ( editor -- gadget ) children>> second viewport>> gadget-child ;
+: get-recorder-gadget ( editor -- gadget ) children>> last ;
+! TODO Replace with something better
+: get-slider-gadget ( gadget -- gadget )
+    children>> <reversed> third ;
+
 
 M: page-editor graft*
     { [ call-next-method ]
@@ -371,10 +377,10 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     quicksave-path get load-clip-displays swap
     [ clip-displays<< ] [ relayout ] bi ;
 
-! TODO Replace with something better
+! TODO Replace with model update
 : editor-update-range ( gadget -- )
     [ clip-displays>> recompute-page-duration ]
-    [ children>> but-last-slice last model>> set-range-max-value ] bi ;
+    [ get-slider-gadget model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
     dup get-focused-clip [ f >>audio ] change-clip drop
@@ -436,21 +442,28 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
       ] [ drop ] if ] change-clip-displays drop ;
 
 : make-clip-audio-path ( path n -- path )
-    "clip-%02d.ogg" sprintf append-path ;
+    "clip-%02d" sprintf append-path ;
 
+: project-clip-path ( project-path audio-path i -- path )
+    [ file-name append-path ] dip "clip-%0d" sprintf rename-file-stem ;
+
+! Dangerous!
 :: copy-clip-audio-to-project ( clip-display path i -- )
     clip-display clip>> audio-path>> :> src
-    path i make-clip-audio-path :> dst
+    path src i project-clip-path :> dst
     src dst copy-file
     clip-display dst assign-clip-audio ;
 
 ERROR: no-output-dir ;
 
 : ensure-audio-dir ( gadget -- path )
+    output-dir>> [ "audio" append-path dup make-directories ] [ no-output-dir ] if* ;
+
+: ensure-empty-audio-dir ( gadget -- path )
     output-dir>> [ "audio" append-path ensure-empty-path ] [ no-output-dir ] if* ;
 
 : page-copy-audio ( gadget -- )
-    [ ensure-audio-dir ]
+    [ ensure-empty-audio-dir ]
     [ clip-displays>> compute-model [ has-audio? ] filter
       [ copy-clip-audio-to-project ] with each-index
     ] bi ;
@@ -481,18 +494,28 @@ ERROR: no-output-dir ;
     [ 2drop ]
     [ prev>> extend-end-to-current-time ] if ;
 
-: create-clip-audio-file ( gadget -- )
-    [ ensure-audio-dir ]
-    [ selected-clip-index make-clip-audio-path ]
-    [ get-focused-clip swap assign-clip-audio ] tri ;
+: create-clip-audio-file ( gadget clip-display -- )
+    [ [ ensure-audio-dir ] keep ] dip
+    [ clip-index make-clip-audio-path ".wav" append ]
+    [ swap assign-clip-audio ] bi ;
 
-: ensure-clip-audio ( gadget -- )
-    dup get-focused-clip has-audio? not
-    [ create-clip-audio-file ] [ drop ] if ;
+: ensure-clip-audio ( gagdet clip-display -- )
+    dup has-audio? not [ create-clip-audio-file ] [ 2drop ] if ;
+
+: record-clip-audio ( gadget clip-display -- )
+    [ ensure-clip-audio ]
+    [ has-audio? normalize-path ] 2bi
+    swap
+    get-recorder-gadget 600 seconds -rot start-recorder ;
+
+: editor-record-clip-audio ( gadget -- )
+    dup get-focused-clip dup has-audio?
+    [ ensure-empty-file-in-path drop ] when*
+    record-clip-audio ;
 
 : editor-edit-audio ( gadget -- )
     get-focused-clip has-audio?
-    [ "audacity %s" sprintf run-detached drop ] when* ;
+    [ normalize-path "audacity %s" sprintf run-detached drop ] when* ;
 
 : editor-change-draw-scale ( gadget inc/dec -- )
     swap page-parameters>> draw-scale>>
@@ -574,6 +597,7 @@ page-editor H{
     { T{ key-down f f "E" } [ editor-add-pause-to-audio ] }
     { T{ key-down f { C+ } "A" } [ editor-set-audio ] }
     { T{ key-down f f "A" } [ editor-edit-audio ] }
+    { T{ key-down f { C+ } "a" } [ editor-record-clip-audio ] }
     { T{ key-down f f "1" } [ 0.5 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "2" } [ 0.75 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
