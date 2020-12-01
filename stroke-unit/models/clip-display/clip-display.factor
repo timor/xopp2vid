@@ -133,10 +133,11 @@ M: model-model model-changed
 : has-audio? ( clip-display -- path/f )
     clip>> audio-path>> dup +no-audio+? [ drop f ] when ;
 
-:: remove-strokes ( clip-display strokes -- clip-display' )
-    clip-display [ [ strokes diff >vector ] change-elements ] change-clip drop
-    clip-display clone-clip-display
-    <empty-clip> strokes >>elements >>clip ;
+: delete-strokes ( clip-display strokes -- )
+    '[ [ _ diff ] change-elements ] change-clip drop ;
+
+: remove-strokes ( clip-display strokes -- clip-display' )
+    [ delete-strokes ] [ [ clone-clip-display <empty-clip> ] dip >>elements >>clip  ] 2bi ;
 
 ! * Sequence modification
 
@@ -182,3 +183,7 @@ M: model-model model-changed
 : replace-clip ( clip old clip-displays -- clip-displays )
     [ drop prev>> ]
     [ remove-clip ] 2bi insert-clip-after ;
+
+: extract-strokes ( clip-displays strokes -- clip-display )
+    [ [ delete-strokes ] curry each ]
+    [ <empty-clip> swap >>elements stroke-speed get <clip-display> ] bi ;

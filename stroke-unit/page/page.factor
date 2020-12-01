@@ -227,10 +227,12 @@ ERROR: no-focused-clip ;
     over page-parameters>> timescale>> compute-model *
     swap page-parameters>> timescale>> set-model ;
 
+: global-time>clip-position ( time clip-display -- position )
+    [ start-time!>> ] [ draw-duration>> ] bi (clip-position) ;
+
 : focused-clip-position ( gadget -- position )
     [ page-parameters>> current-time>> compute-model ]
-    [ get-focused-clip [ start-time!>> ] [ draw-duration>> ] bi ] bi
-    (clip-position) ;
+    [ get-focused-clip global-time>clip-position ] bi ;
 
 ! TODO: inline if we need to reach below stack
 :: replace-clip-2 ( gadget quot: ( gadget clip-display -- cd1 cd2 ) -- )
@@ -474,13 +476,37 @@ ERROR: no-output-dir ;
     [ drop clip>> clip-strokes ]
     [ clip-maker-callback ] 2bi <clip-maker> ;
 
-: show-clip-display-editor ( gadget -- )
-    [ canvas-gadget ]
-    [ <current-clip-maker> ]
-    bi <zero-rect> show-glass ;
+: show-clip-display-editor ( clip-maker gadget -- )
+    canvas-gadget swap <zero-rect> show-glass ;
+    ! [ canvas-gadget ]
+    ! [ <current-clip-maker> ]
+    ! bi <zero-rect> show-glass ;
 
-: editor-extract-strokes ( gadget -- )
-    show-clip-display-editor ;
+: editor-extract-clip-strokes ( gadget -- )
+    [ <current-clip-maker> ]
+    [ show-clip-display-editor ] bi ;
+
+: visible-strokes ( gadget -- seq )
+    [ page-parameters>> current-time>> compute-model ]
+    [ clip-displays>> ] bi
+    [ [ nip clip>> ] [ global-time>clip-position ] 2bi clip-elements-until-position ] with gather ;
+
+:: page-extract-callback ( gadget -- obj )
+    [| strokes | gadget clip-displays>> strokes extract-strokes gadget push-kill ] ;
+
+: <page-clip-maker> ( gadget -- obj )
+    [ visible-strokes ]
+    [ page-extract-callback ] bi <clip-maker> ;
+
+: editor-extract-page-strokes ( gadget -- )
+    [ <page-clip-maker> ]
+    [ show-clip-display-editor ] bi ;
+
+: editor-reorder-clip-horizontal ( gadget -- )
+    get-focused-clip [ clip-reorder-horizontal ] change-clip drop ;
+
+: editor-reorder-clip-vertical ( gadget -- )
+    get-focused-clip [ clip-reorder-vertical ] change-clip drop ;
 
 ! * Editor Keybindings
 
@@ -526,7 +552,8 @@ page-editor H{
     { T{ key-down f { C+ } "=" } [ 0.1 editor-change-draw-scale ] }
     { T{ key-down f { C+ } "-" } [ -0.1 editor-change-draw-scale ] }
     { T{ key-down f { C+ } "d" } [ drop hand-gadget get ui.tools.inspector:inspector ] }
-    { T{ key-down f f "i" } [ editor-extract-strokes ] }
+    { T{ key-down f f "i" } [ editor-extract-clip-strokes ] }
+    { T{ key-down f f "I" } [ editor-extract-page-strokes ] }
     { T{ key-down f f "r" } [ editor-reorder-clip-horizontal ] }
     { T{ key-down f f "R" } [ editor-reorder-clip-vertical ] }
 } set-gestures
