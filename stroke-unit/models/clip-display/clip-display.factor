@@ -1,7 +1,7 @@
 USING: accessors arrays io.directories kernel math math.combinators
 math.functions math.order models models.arrow models.arrow.smart
 models.model-slots models.product namespaces sequences sequences.generalizations
-sets stroke-unit.clips vectors ;
+sets stroke-unit.clip-renderer stroke-unit.clips ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;

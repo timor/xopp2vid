@@ -2,7 +2,7 @@ USING: accessors animators arrays audio.engine calendar combinators
 combinators.short-circuit continuations formatting grouping io.backend
 io.directories io.encodings.binary io.files io.files.temp io.launcher
 io.pathnames kernel math math.rectangles models models.arrow models.model-slots
-models.selection namespaces prettyprint sequences serialize
+models.selection namespaces prettyprint sequences serialize sets
 stroke-unit.clip-renderer stroke-unit.clips stroke-unit.clips.clip-maker
 stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
@@ -90,6 +90,9 @@ M: page-editor focusable-child* timeline-gadget ;
         ] keep 2array ]
       [ drop f ] if*
     ] with map sift ;
+
+: clip-index ( gadget clip -- index/f )
+    swap selection>> items>> index ;
 
 ! TODO: replace whole index thing with selection model content?
 : selected-clip-index ( gadget -- index/f )
@@ -379,16 +382,30 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ editor-update-range ]
     [ relayout ] tri ;
 
+: output-clip-path ( gadget -- path )
+    output-dir>> "clips" append-path ;
+
+: clip-output-path ( gadget clip-display -- path )
+    [ drop output-clip-path ]
+    [ clip-index ] 2bi append-path ;
+
+: editor-render-clip ( gadget -- )
+    dup get-focused-clip
+    [ drop page>> dup page-dim ]
+    [ nip 1array ]
+    [ drop output-clip-path ensure-empty-path ] 2tri
+    render-page-clip-frames drop ;
+
 :: render-page-editor-clips ( editor page dim path --  )
     path ensure-empty-path :> path
-    page dim editor clip-displays>> compute-model path
+    page dim editor clip-displays>> path
     render-page-clip-frames drop ;
 
 : render-page-to-path ( gadget dim path -- )
     [ dup page>> ] 2dip render-page-editor-clips ;
 
 : editor-render-page ( gadget dim -- )
-    over output-dir>> "clips" append-path render-page-to-path ;
+    over output-clip-path render-page-to-path ;
 
 : editor-new-pause-after ( gadget -- )
     [ 1 <pause-display> swap push-kill ]
