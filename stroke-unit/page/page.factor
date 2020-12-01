@@ -418,16 +418,22 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
               [ draw-duration<< ] bi
       ] [ drop ] if ] change-clip-displays drop ;
 
+: make-clip-audio-path ( path n -- path )
+    "clip-%02d.ogg" sprintf append-path ;
+
 :: copy-clip-audio-to-project ( clip-display path i -- )
     clip-display clip>> audio-path>> :> src
-    path i "clip-%02d.ogg" sprintf append-path :> dst
+    path i make-clip-audio-path :> dst
     src dst copy-file
     clip-display dst assign-clip-audio ;
 
 ERROR: no-output-dir ;
 
+: ensure-audio-dir ( gadget -- path )
+    output-dir>> [ "audio" append-path ensure-empty-path ] [ no-output-dir ] if* ;
+
 : page-copy-audio ( gadget -- )
-    [ output-dir>> [ "audio" append-path ensure-empty-path ] [ no-output-dir ] if* ]
+    [ ensure-audio-dir ]
     [ clip-displays>> compute-model [ has-audio? ] filter
       [ copy-clip-audio-to-project ] with each-index
     ] bi ;
@@ -457,6 +463,15 @@ ERROR: no-output-dir ;
     dup get-focused-clip dup first-clip-display?
     [ 2drop ]
     [ prev>> extend-end-to-current-time ] if ;
+
+: create-clip-audio-file ( gadget -- )
+    [ ensure-audio-dir ]
+    [ selected-clip-index make-clip-audio-path ]
+    [ get-focused-clip swap assign-clip-audio ] tri ;
+
+: ensure-clip-audio ( gadget -- )
+    dup get-focused-clip has-audio? not
+    [ create-clip-audio-file ] [ drop ] if ;
 
 : editor-edit-audio ( gadget -- )
     get-focused-clip has-audio?
