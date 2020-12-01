@@ -1,4 +1,5 @@
-USING: kernel sequences stroke-unit.elements ui ui.gadgets xopp.file ;
+USING: kernel sequences stroke-unit.elements ui ui.gadgets vocabs.parser
+xopp.file ;
 
 USE: stroke-unit.util
 USE: stroke-unit.clips
@@ -26,3 +27,6 @@ TUPLE: layer clips ;
 : empty-page ( -- gadget )
     f <page-editor> dup "foo" open-window gadget-child ;
 
+: run-stroke-unit ( -- )
+    [ [ f <page-editor> "Stroke Unit" open-window ] with-ui ] with-manifest ;
+MAIN: run-stroke-unit
