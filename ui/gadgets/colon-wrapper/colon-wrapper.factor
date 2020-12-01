@@ -9,6 +9,8 @@ IN: ui.gadgets.colon-wrapper
 TUPLE: colon-wrapper < track ;
 TUPLE: colon-field < action-field ;
 
+M: colon-wrapper focusable-child* gadget-child ;
+
 : execute-command-string-for ( string gadget -- )
     swap ":" drop-prefix drop >string 1array parse-lines curry call( -- ) ;
 

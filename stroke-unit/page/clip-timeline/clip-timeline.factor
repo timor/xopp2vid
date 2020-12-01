@@ -136,3 +136,5 @@ M: clip-timeline add-model-children
     10 10 horizontal clip-timeline new-timeline
     clip-displays >>model
     page-parameters >>parameters ;
+
+M: clip-timeline focusable-child* drop t ;
