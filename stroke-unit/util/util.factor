@@ -1,11 +1,10 @@
-USING: accessors alien alien.data arrays audio audio.engine audio.loader
-audio.vorbis byte-arrays byte-vectors cairo cairo-gadgets cairo.ffi calendar
-calendar.format classes.struct colors columns combinators
-combinators.short-circuit continuations destructors endian grouping images
-images.memory.private io.backend io.directories io.files io.files.info
-io.streams.string kernel math math.functions math.order math.rectangles
-math.vectors namespaces sequences sequences.mapped strings threads xml xml.data
-xml.traversal ;
+USING: accessors alien alien.data arrays audio.engine audio.vorbis cairo
+cairo-gadgets cairo.ffi calendar calendar.format classes.struct colors columns
+combinators combinators.short-circuit continuations destructors endian grouping
+images images.memory.private io.backend io.directories io.files io.files.info
+io.pathnames io.streams.string kernel math math.functions math.order
+math.rectangles math.vectors namespaces sequences sequences.mapped strings
+threads xml xml.data xml.traversal ;
 
 IN: stroke-unit.util
 
@@ -79,23 +78,6 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     filename 16384 read-vorbis-stream
     2
     play-streaming-audio-clip ;
-
-! Inefficiently decode ogg and create big chunk of memory
-:: ogg>pcm ( stream -- byte-array )
-    0 <byte-vector> :> vec
-    [
-        stream generate-audio :> ( buffer length )
-        length 0 > [ vec buffer length head-slice append! drop t ]
-        [ f ] if
-        yield
-    ] loop vec >byte-array ;
-
-: ogg>audio ( filename -- audio )
-    32768 read-vorbis-stream
-    [ generator-audio-format 0 f <audio> ]
-    [ ogg>pcm [ length >>size ] [ >>data ] bi ] bi ;
-
-"ogg" [ ogg>audio ] register-audio-extension
 
 : audio-duration ( audio -- duration )
     { [ size>> ]
