@@ -535,8 +535,8 @@ page-editor H{
     { T{ key-down f f "m" } [ editor-merge-left ] }
     { T{ key-down f f "s" } [ editor-half-focused-clip ] }
     { T{ key-down f f "S" } [ editor-split-focused-clip ] }
-    { T{ key-down f f "d" } [ editor-divide-focused-clip-vertical ] }
-    { T{ key-down f f "D" } [ editor-divide-focused-clip-horizontal ] }
+    { T{ key-down f f "d" } [ editor-divide-focused-clip-horizontal ] }
+    { T{ key-down f f "D" } [ editor-divide-focused-clip-vertical ] }
     { T{ key-down f f "-" } [ 1/2 editor-change-timescale ] }
     { T{ key-down f f "=" } [ 2 editor-change-timescale ] }
     { T{ key-down f f " " } [ editor-toggle-playback ] }
