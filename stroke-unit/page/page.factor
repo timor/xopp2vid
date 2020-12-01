@@ -306,7 +306,7 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
     {
         [ xopp-file>> ]
         [ page>> ]
-        [ clip-displays>> compute-model bake-clips ]
+        [ clip-displays>> bake-clips ]
         [ output-dir>> ]
     } cleave save-record boa ;
 
@@ -329,7 +329,7 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
 
 : editor-import-xopp-page ( gadget xopp-file-path page-no -- )
     over file>xopp pages nth dup page-clips initialize-clips
-    [ >>xopp-file ] [ >>page ] [ swap clip-displays>> set-model ] tri* ;
+    [ >>xopp-file ] [ >>page ] [ swap clip-displays<< ] tri* ;
 
 : unbake-clips ( seq -- seq )
     [ first2 maybe-convert-time <duration-clip-display> ] map
@@ -342,7 +342,7 @@ SYMBOL: quicksave-path
 quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 
 : editor-quicksave ( gadget --  )
-    clip-displays>> compute-model quicksave-path get save-clips ;
+    clip-displays>> quicksave-path get save-clips ;
     ! quicksave-path get editor-save-to ;
 
 : clear-caches ( gadget -- )
@@ -366,7 +366,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 : editor-quickload ( gadget -- )
     dup clear-caches
     quicksave-path get load-clip-displays swap
-    [ clip-displays>> set-model ] [ relayout ] bi ;
+    [ clip-displays<< ] [ relayout ] bi ;
 
 ! TODO Replace with something better
 : editor-update-range ( gadget -- )
