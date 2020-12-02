@@ -38,9 +38,9 @@ M: unix record-audio-file-process
 
 ! Small gadget for recording
 
-TUPLE: recorder-gadget < pack timer process time-m device ;
+TUPLE: recorder-gadget < pack timer process time-m recording-m device ;
 MODEL-SLOT: recorder-gadget [ time-m>> ] time
-
+MODEL-SLOT: recorder-gadget [ recording-m>> ] recording?
 
 <PRIVATE
 : label-gadget ( gadget -- gadget )
@@ -48,7 +48,8 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
 
 : reset-recorder ( gadget -- )
     [ timer>> [ stop-timer ] when* ]
-    [ 0 swap time<< ] bi ;
+    [ 0 swap time<< ]
+    [ f swap recording?<< ] tri ;
 
 : signal-process ( process signal -- )
     '[ handle>> _ ] [ group>> ] bi {
@@ -56,6 +57,9 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
         { +new-group+ [ killpg ] }
         { +new-session+ [ killpg ] }
     } case io-error ;
+
+: if-process* ( process quot quot -- )
+    pick { [ process? ] [ process-running? ] } 1&& [ drop call ] [ nip call ] if ; inline
 
 : when-process* ( process quot -- )
     over { [ process? ] [ process-running? ] } 1&& [ call ] [ 2drop ] if ; inline
@@ -68,7 +72,9 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
        gadget reset-recorder
        status-string gadget label-gadget string<<
     ] "Audio-Recorder-Sentinel" spawn drop
-    gadget timer>> start-timer ;
+    gadget timer>> start-timer
+    t gadget recording?<<
+    ;
 
 : prepare-recording ( max-duration filename gadget -- process )
     device>> -rot record-audio-file-process ;
@@ -80,7 +86,9 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
 PRIVATE>
 
 : stop-recording ( gadget -- )
-    process>> [ SIGINT signal-process ] when-process* ;
+    dup process>> [ SIGINT signal-process drop ]
+    [ drop reset-recorder ] if-process* ;
+    ! when-process* ;
 
 M: recorder-gadget ungraft*
     [ call-next-method ] keep
@@ -91,11 +99,13 @@ M: recorder-gadget ungraft*
     recorder-gadget new dup :> gadget
     horizontal >>orientation
     device >>device
+    f <model> dup :> rec-model >>recording-m
     0 <model> dup :> time-model >>time-m
     [ gadget [ 1 + ] change-time drop ] f 1 seconds <timer> >>timer
     time-model [ device swap "Recording Device: %s %ds" sprintf ] <arrow> <label-control>
     add-gadget
     "Stop" [ drop gadget stop-recording ] <roll-button> add-gadget
+    rec-model [ "rec" "" ? ] <arrow> <label-control> add-gadget
     { 10 10 } >>gap ;
 
 : start-recorder ( max-duration filename gadget -- )
