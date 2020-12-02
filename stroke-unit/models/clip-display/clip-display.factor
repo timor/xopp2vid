@@ -184,3 +184,23 @@ M: model-model model-changed
 : extract-strokes ( clip-displays strokes -- clip-display )
     [ [ delete-strokes ] curry each ]
     [ <empty-clip> swap >>elements stroke-speed get <clip-display> ] bi ;
+
+: find-clip-backwards ( clip-display quot: ( clip-display -- ? ) -- clip-display/f )
+    '[ dup [ @ not ] [ start-clip? not ] bi and ] [ prev>> ] while
+    dup start-clip? [ drop f ] when ; inline
+
+! Return time in seconds from start of audio to start of clip
+: find-current-audio ( clip-display -- clip-display/f )
+    [ has-audio? ] find-clip-backwards ;
+
+: start-offset ( clip-display clip-display -- seconds/f )
+    [ start-time!>> ] bi@ - ;
+
+! Return time the current clip's end differs from the last audio's end
+! Positive means gap, negative means overlap
+: audio-gap-length ( clip-display -- seconds/f )
+    [ find-current-audio ] keep over [
+        [ swap start-offset ] [ nip draw-duration>> + ]
+        [ drop clip>> clip-audio-duration ]
+        2tri - ]
+    [ 2drop f ] if ;

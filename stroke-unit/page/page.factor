@@ -413,33 +413,37 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 : editor-render-page ( gadget dim -- )
     over output-clip-path render-page-to-path ;
 
-: editor-new-pause-after ( gadget -- )
-    [ 1 <pause-display> swap push-kill ]
+: editor-new-pause-after ( gadget seconds -- )
+    '[ _ <pause-display> swap push-kill ]
     [ editor-yank-after ] bi ;
 
 : focus-pause-after/create ( gadget -- clip-display )
     dup dup [ get-focused-clip ] [ clip-displays>> find-successor ] bi
     dup pause-display?
     [ swap select-clip ]
-    [ drop editor-new-pause-after ] if
+    [ drop 0 editor-new-pause-after ] if
     get-focused-clip ;
 
 ! Add/extend pause after current clip to match clip's audio length without
-! changing draw speed
+! changing draw speed.  If the current clip does not have audio, find the first
+! previous clip that does.
 : editor-add-pause-to-audio ( gadget -- )
-    [ get-focused-clip fit-audio-pause ]
-    [ over [ focus-pause-after/create draw-duration<< ] [ 2drop ] if ] bi ;
+    dup get-focused-clip audio-gap-length
+    [ neg swap focus-pause-after/create [ + ] change-draw-duration drop ]
+    [ 2drop ] if-negative ;
 
 : editor-set-stroke-speed-factor ( gadget factor -- )
     stroke-speed get *
     swap get-focused-clip set-stroke-speed ;
 
-! Set current clip duration to audio duration
+! Change clip-draw duration, but only if it would not become <= 0
+: maybe-change-duration ( clip-display delta -- )
+    over draw-duration>> + [ swap draw-duration<< ] [ 2drop ] if-positive ;
+
+! Set current clip duration to audio duration of most recent audio
 : editor-match-audio ( gadget -- )
-    dup '[ _ get-focused-clip dup has-audio? [
-              [ clip>> clip-audio-duration ]
-              [ draw-duration<< ] bi
-      ] [ drop ] if ] change-clip-displays drop ;
+    get-focused-clip dup audio-gap-length
+    [ drop ] [ neg maybe-change-duration ] if-zero ;
 
 : make-clip-audio-path ( path n -- path )
     "clip-%02d" sprintf append-path ;
