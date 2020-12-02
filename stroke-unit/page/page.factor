@@ -529,8 +529,8 @@ ERROR: no-output-dir ;
     dup get-focused-clip overdub-clip-audio ;
 
 : editor-edit-audio ( gadget -- )
-    get-focused-clip has-audio?
-    [ normalize-path "audacity %s" sprintf run-detached drop ] when* ;
+    get-focused-clip find-current-audio
+    [ has-audio? normalize-path "audacity %s" sprintf run-detached drop ] when* ;
 
 : editor-change-draw-scale ( gadget inc/dec -- )
     swap page-parameters>> draw-scale>>
