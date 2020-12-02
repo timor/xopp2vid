@@ -428,7 +428,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 
 : focus-pause-after/create ( gadget -- clip-display )
     dup dup [ get-focused-clip ] [ clip-displays>> find-successor ] bi
-    dup pause-display?
+    dup [ pause-display? ] [ f ] if*
     [ swap select-clip ]
     [ drop 0 editor-new-pause-after ] if
     get-focused-clip ;
