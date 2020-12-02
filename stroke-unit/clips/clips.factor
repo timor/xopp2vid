@@ -11,7 +11,7 @@ TUPLE: clip ogg-file audio-path audio elements ;
 
 : <empty-clip> ( -- obj ) clip new +no-audio+ >>audio-path ;
 
-PREDICATE: empty-clip < clip { [ elements>> empty? ] [ audio>> not ] } 1&& ;
+PREDICATE: empty-clip < clip { [ elements>> empty? ] [ audio-path>> +no-audio+? ] } 1&& ;
 
 SYMBOL: current-clips
 

@@ -131,7 +131,7 @@ M: model-model model-changed
     [ swap draw-duration<< ] [ 2drop ] if-positive ;
 
 : has-audio? ( clip-display -- path/f )
-    clip>> audio-path>> dup +no-audio+? [ drop f ] when ;
+    clip>> [ audio-path>> dup +no-audio+? [ drop f ] when ] [ f ] if* ;
 
 : delete-strokes ( clip-display strokes -- )
     '[ [ _ diff ] change-elements ] change-clip drop ;
