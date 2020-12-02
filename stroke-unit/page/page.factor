@@ -600,9 +600,9 @@ page-editor H{
     { T{ key-down f f "E" } [ editor-add-pause-to-audio ] }
     { T{ key-down f { C+ } "A" } [ editor-set-audio ] }
     { T{ key-down f f "A" } [ editor-edit-audio ] }
-    { T{ key-down f f "1" } [ 0.5 editor-set-stroke-speed-factor ] }
     { T{ key-down f { C+ } " " } [ editor-record-clip-audio ] }
     { T{ key-down f f "RET" } [ get-recorder-gadget stop-recording ] }
+    { T{ key-down f f "1" } [ 0.66 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "2" } [ 0.75 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
