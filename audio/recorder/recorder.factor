@@ -60,9 +60,6 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
 : when-process* ( process quot -- )
     over { [ process? ] [ process-running? ] } 1&& [ call ] [ 2drop ] if ; inline
 
-: stop-recording ( gadget -- )
-    process>> [ SIGINT signal-process ] when-process* ;
-
 :: start-with-sentinel ( gadget -- )
     gadget process>>
     '[ _ run-detached :> process
@@ -81,6 +78,10 @@ MODEL-SLOT: recorder-gadget [ time-m>> ] time
     [ swap >>process start-with-sentinel ] bi ;
 
 PRIVATE>
+
+: stop-recording ( gadget -- )
+    process>> [ SIGINT signal-process ] when-process* ;
+
 M: recorder-gadget ungraft*
     [ call-next-method ] keep
     [ stop-recording ]
