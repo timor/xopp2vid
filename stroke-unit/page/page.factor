@@ -1,9 +1,9 @@
 USING: accessors animators arrays audio.engine audio.recorder calendar
 combinators combinators.short-circuit continuations formatting grouping
 io.backend io.directories io.encodings.binary io.files io.files.temp io.launcher
-io.pathnames kernel math math.rectangles models models.arrow models.model-slots
-models.selection namespaces prettyprint sequences serialize sets
-stroke-unit.clip-renderer stroke-unit.clips stroke-unit.clips.clip-maker
+io.pathnames kernel math math.combinators math.rectangles models models.arrow
+models.model-slots models.selection namespaces prettyprint sequences serialize
+sets stroke-unit.clip-renderer stroke-unit.clips stroke-unit.clips.clip-maker
 stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
 stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.util timers
