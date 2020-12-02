@@ -391,8 +391,11 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     quicksave-path get load-clip-displays swap
     [ clip-displays<< ] [ relayout ] bi ;
 
+: trigger-audio-reload ( clip-display -- )
+    find-current-audio [ [ f >>audio ] change-clip drop ] when* ;
+
 : editor-update-display ( gadget -- )
-    dup get-focused-clip [ f >>audio ] change-clip drop
+    dup get-focused-clip trigger-audio-reload
     [ [ ] change-clip-displays drop ]
     [ editor-update-range ]
     [ relayout ] tri ;
