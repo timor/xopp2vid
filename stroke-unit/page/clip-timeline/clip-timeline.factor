@@ -86,7 +86,7 @@ MEMO: <empty-image> ( -- image )
         [ stroke-speed-model>> ]
         [ clip-model>> ]
     } cleave
-    [ [ ] 2dip audio-path>> dup +no-audio+? [ drop "" ] [ file-name ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n%-30s" sprintf ] <?smart-arrow> ;
+    [ [ ] 2dip dup audio-path>> +no-audio+? [ drop "" ] [ clip-audio-duration "%.1fs" sprintf ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n%-30s" sprintf ] <?smart-arrow> ;
 
 GENERIC: <clip-preview-image> ( model clip -- gadget )
 
