@@ -276,16 +276,24 @@ ERROR: no-focused-clip ;
 : editor-divide-focused-clip-horizontal ( gadget -- )
     [ clip-divide-horizontal ] editor-split-action ;
 
+! TODO Replace with model update
+: editor-update-range ( gadget -- )
+    [ clip-displays>> recompute-page-duration ]
+    [ get-slider-gadget model>> set-range-max-value ] bi ;
+
 : editor-toggle-playback ( gadget -- )
-    [ animator>> toggle-animation ]
-    [ dup playback>>
-      [ editor-stop-playback ]
-      [ editor-start-playback ] if
-    ] bi ;
+    ! TODO: should be replaced by proper model updates!
+    dup editor-update-range
+    dup animator>> dup paused?
+    [ start-animation editor-start-playback ]
+    [ pause-animation editor-stop-playback ] if ;
+
+: wind-to-clip-start ( gadget clip-display -- )
+    start-time>> swap
+    page-parameters>> current-time>> set-model ;
 
 : editor-wind-to-focused ( gadget -- )
-    [ get-focused-clip start-time>> ]
-    [ page-parameters>> current-time>> set-model ] bi ;
+    dup get-focused-clip wind-to-clip-start ;
 
 : editor-wind-to-focused-end ( gadget -- )
     [ get-focused-clip [ start-time>> ] [ draw-duration>> ] bi + ]
@@ -376,11 +384,6 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     dup clear-caches
     quicksave-path get load-clip-displays swap
     [ clip-displays<< ] [ relayout ] bi ;
-
-! TODO Replace with model update
-: editor-update-range ( gadget -- )
-    [ clip-displays>> recompute-page-duration ]
-    [ get-slider-gadget model>> set-range-max-value ] bi ;
 
 : editor-update-display ( gadget -- )
     dup get-focused-clip [ f >>audio ] change-clip drop
@@ -498,24 +501,23 @@ ERROR: no-output-dir ;
     [ 2drop ]
     [ prev>> extend-end-to-current-time ] if ;
 
-: create-clip-audio-file ( gadget clip-display -- )
-    [ [ ensure-audio-dir ] keep ] dip
-    [ clip-index make-clip-audio-path ".wav" append ]
-    [ swap assign-clip-audio ] bi ;
-
-: ensure-clip-audio ( gagdet clip-display -- )
-    dup has-audio? not [ create-clip-audio-file ] [ 2drop ] if ;
+: fresh-clip-audio-file ( gadget -- filename )
+    ensure-audio-dir normalize-path
+    "recording-" now timestamp>filename-component append ".wav" append append-path ;
 
 : record-clip-audio ( gadget clip-display -- )
-    [ ensure-clip-audio ]
-    [ has-audio? normalize-path ] 2bi
-    swap
-    get-recorder-gadget 600 seconds -rot start-recorder ;
+    swap [ fresh-clip-audio-file dup ] [ get-recorder-gadget ] bi
+    5 minutes -rot start-recorder
+    assign-clip-audio ;
+
+: overdub-clip-audio ( gadget clip-display -- )
+    [ wind-to-clip-start ]
+    [ record-clip-audio ]
+    [ drop animator>> start-animation ] 2tri ;
 
 : editor-record-clip-audio ( gadget -- )
-    dup get-focused-clip dup has-audio?
-    [ ensure-empty-file-in-path drop ] when*
-    record-clip-audio ;
+    dup editor-update-range
+    dup get-focused-clip overdub-clip-audio ;
 
 : editor-edit-audio ( gadget -- )
     get-focused-clip has-audio?
@@ -537,9 +539,6 @@ ERROR: no-output-dir ;
 
 : show-clip-display-editor ( clip-maker gadget -- )
     canvas-gadget swap <zero-rect> show-glass ;
-    ! [ canvas-gadget ]
-    ! [ <current-clip-maker> ]
-    ! bi <zero-rect> show-glass ;
 
 : editor-extract-clip-strokes ( gadget -- )
     [ <current-clip-maker> ]
@@ -601,8 +600,9 @@ page-editor H{
     { T{ key-down f f "E" } [ editor-add-pause-to-audio ] }
     { T{ key-down f { C+ } "A" } [ editor-set-audio ] }
     { T{ key-down f f "A" } [ editor-edit-audio ] }
-    { T{ key-down f { C+ } "a" } [ editor-record-clip-audio ] }
     { T{ key-down f f "1" } [ 0.5 editor-set-stroke-speed-factor ] }
+    { T{ key-down f { C+ } " " } [ editor-record-clip-audio ] }
+    { T{ key-down f f "RET" } [ get-recorder-gadget stop-recording ] }
     { T{ key-down f f "2" } [ 0.75 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
