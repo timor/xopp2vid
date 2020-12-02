@@ -158,9 +158,6 @@ M: model-model model-changed
 : append-clip ( clip clip-displays -- clip-displays )
     [ 1array ] [ [ length ] keep connect-insert-nth ] if-empty ;
 
-! : connect-or-append ( clip n clip-displays -- clip-displays )
-!     2dup length >= [ nip append-clip ] [ connect-insert-nth ] if ;
-
 ! Special case: we can insert after the start clip
 : insert-after-index ( clip seq -- n )
     over start-clip? [ 2drop 0 ]
