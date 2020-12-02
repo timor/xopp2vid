@@ -37,6 +37,9 @@ TUPLE: page-editor < track
 MODEL-SLOT: page-editor [ clip-displays-m>> ] clip-displays
 INSTANCE: page-editor has-selection
 
+: generate-project-filename ( -- str )
+    "stroke-unit-" temp-file now timestamp>filename-component append ;
+
 :: <page-editor-from-clips> ( clips -- gadget )
     clips initialize-clips :> clip-displays
     vertical page-editor new-track
@@ -51,7 +54,7 @@ INSTANCE: page-editor has-selection
     page-parameters cds <page-canvas> 0.85 track-add
     page-parameters cds <page-timeline> <scroller> 0.15 track-add
     range-model <page-slider> f track-add
-    "stroke-unit-" temp-file now timestamp>filename-component append <model> dup :> filename-model
+    generate-project-filename <model> dup :> filename-model
     >>filename
     <shelf> { 10 10 } >>gap
     filename-model <label-control> add-gadget
@@ -345,8 +348,11 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
     dup ensure-filename editor-save-to ;
 
 : editor-import-xopp-page ( gadget xopp-file-path page-no -- )
+    ! TODO: maybe save existing?
+    [ dup generate-project-filename set-filename f >>output-dir ] 2dip
     over file>xopp pages nth dup page-clips initialize-clips
-    [ >>xopp-file ] [ >>page ] [ swap clip-displays<< ] tri* ;
+    [ >>xopp-file ] [ >>page ] [ swap clip-displays<< ] tri*
+    ;
 
 : unbake-clips ( seq -- seq )
     [ first2 maybe-convert-time <duration-clip-display> ] map
