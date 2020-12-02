@@ -124,8 +124,9 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     values length width /i :> chunks
     values chunks <groups> [ supremum ] map
     :> levels
+    levels supremum [ 1 ] when-zero :> max-level
     width <iota> [| x | x levels ?nth
-                  [ height fg bg audio-image-column ]
+                  [ max-level / height fg bg audio-image-column ]
                   [ height bg bg-column ] if* yield ] map <flipped> concat
     concat
     <image> swap >>bitmap width height 2array >>dim
