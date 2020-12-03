@@ -1,15 +1,16 @@
 USING: accessors arrays audio audio.player-gadget calendar colors.constants
 combinators continuations formatting images images.viewer images.viewer.private
-io.pathnames kernel math math.order math.rectangles models models.arrow
-models.arrow.smart models.async models.selection opengl.textures sequences
+kernel math math.order math.rectangles models models.arrow models.arrow.smart
+models.async models.selection opengl.textures sequences
 stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util timers ui.gadgets
 ui.gadgets.labels ui.gadgets.model-children ui.gadgets.scrollers
-ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.pens.solid ui.render ;
+ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid
+ui.render ;
 
 IN: stroke-unit.page.clip-timeline
 
 ! * Image-control that keeps aspect ratio and displays other stuff for use in timeline
-TUPLE: clip-timeline-preview < image-control clip-display ;
+TUPLE: clip-timeline-preview < image-control clip-display current-time-model ;
 
 M: clip-timeline-preview draw-gadget*
     dup ?update-texture
@@ -100,12 +101,27 @@ M: empty-clip <clip-preview-image> 2drop <empty-image> clip-timeline-preview new
         [ >>clip-display ]
         [ <clip-parameter-string--> <label-control> add-gadget ]
         ! [ draw-duration>> [ "%.1fs" sprintf ] <?arrow> <label-control> add-gadget ]
-        [ pick current-time>> swap <preview-cursor> add-gadget ]
+        [ pick current-time>>
+          [ swap <preview-cursor> add-gadget ]
+          [ >>current-time-model ] bi ]
         [ swapd [ timescale>> ] dip
           <audio-indicator> add-gadget
           ! 2drop
         ]
     } cleave ;
+
+: clip-preview>time ( gadget -- time )
+    [ hand-click-rel first ]
+    [ dim>> first / ]
+    [ clip-display>> [ draw-duration>> * ] [ start-time!>> + ] bi ] tri ;
+
+: preview-click ( gadget -- )
+    [ clip-preview>time ]
+    [ current-time-model>> ?set-model ] bi ;
+
+clip-timeline-preview H{
+    { T{ button-down f { C+ } 1 } [ preview-click ] }
+} set-gestures
 
 ! ** Clip Preview Timeline
 
