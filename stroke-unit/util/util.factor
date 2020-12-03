@@ -1,10 +1,11 @@
-USING: accessors alien alien.data arrays audio.engine audio.vorbis cairo
-cairo-gadgets cairo.ffi calendar calendar.format classes.struct colors columns
-combinators combinators.short-circuit continuations destructors endian grouping
-images images.memory.private io.backend io.directories io.files io.files.info
-io.pathnames io.streams.string kernel math math.functions math.order
-math.rectangles math.vectors namespaces sequences sequences.mapped strings
-threads xml xml.data xml.traversal ;
+USING: accessors alien alien.data arrays audio.engine audio.gadget.private
+audio.vorbis cairo cairo-gadgets cairo.ffi calendar calendar.format
+classes.struct colors columns combinators combinators.short-circuit
+continuations destructors endian grouping images images.memory.private
+io.backend io.directories io.files io.files.info io.pathnames io.streams.string
+kernel math math.functions math.order math.rectangles math.vectors namespaces
+sequences sequences.mapped sequences.merged strings threads xml xml.data
+xml.traversal ;
 
 IN: stroke-unit.util
 
@@ -182,3 +183,12 @@ ERROR: file-exists path ;
 
 : timestamp>filename-component ( timestamp -- string )
     [ { YYYY "-" MM "-" DD "-" hh "-" mm "-" ss } formatted ] with-string-writer ;
+
+: longer-tail ( seq1 seq2 -- seq )
+    [ longer ]
+    [ [ length ] bi@ - abs ] 2bi tail* ;
+
+! like 2merge, but appends the longer tail part
+: 2merge-all ( seq1 seq2 -- seq )
+    [ 2merge ]
+    [ longer-tail ] 2bi append ;

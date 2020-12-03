@@ -200,11 +200,6 @@ ERROR: no-focused-clip ;
     [ get-focused-clip clone-clip-display ]
     [ push-kill ] bi ;
 
-: <merged-clip-display> ( d1 d2 -- d )
-    [ [ clip>> ] bi@ clip-merge ]
-    [ [ draw-duration!>> ] bi@ + ] 2bi
-    <duration-clip-display> ;
-
 : editor-merge-left ( gadget -- )
     dup get-focused-clip first-clip?
     [ drop ]
@@ -477,7 +472,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
 ERROR: no-output-dir ;
 
 : ensure-audio-dir ( gadget -- path )
-    output-dir>> [ "audio" append-path dup make-directories ] [ no-output-dir ] if* ;
+    output-dir>> [ "audio" append-path normalize-path dup make-directories ] [ no-output-dir ] if* ;
 
 : ensure-empty-audio-dir ( gadget -- path )
     output-dir>> [ "audio" append-path ensure-empty-path ] [ no-output-dir ] if* ;
@@ -515,7 +510,7 @@ ERROR: no-output-dir ;
     [ prev>> extend-end-to-current-time ] if ;
 
 : fresh-clip-audio-file ( gadget -- filename )
-    ensure-audio-dir normalize-path
+    ensure-audio-dir
     "recording-" now timestamp>filename-component append ".wav" append append-path ;
 
 : record-clip-audio ( gadget clip-display -- )
@@ -591,6 +586,12 @@ ERROR: no-output-dir ;
 
 : editor-reorder-clip-vertical ( gadget -- )
     get-focused-clip [ clip-reorder-vertical ] change-clip drop ;
+
+
+! Interleaves current clip-displays with audio-only clips
+: editor-import-audio-dir ( gadget path --  )
+    qualified-directory-files [ <audio-clip-display> ] map
+    '[ _ 2merge-all connect-all-displays ] change-clip-displays drop ;
 
 ! * Editor Keybindings
 

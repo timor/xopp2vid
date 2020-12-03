@@ -1,8 +1,8 @@
-USING: accessors arrays io io.backend io.directories io.encodings.utf8 io.files
-kernel math math.combinators math.functions math.order models models.arrow
-models.arrow.smart models.model-slots models.product namespaces prettyprint
-sequences sequences.generalizations sets stroke-unit.clip-renderer
-stroke-unit.clips ;
+USING: accessors arrays combinators io io.backend io.directories
+io.encodings.utf8 io.files kernel math math.combinators math.functions
+math.order models models.arrow models.arrow.smart models.model-slots
+models.product namespaces prettyprint sequences sequences.generalizations sets
+stroke-unit.clip-renderer stroke-unit.clips ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
@@ -98,10 +98,11 @@ M: model-model model-changed
     [ clip>> ] [ draw-duration>> ] bi
     <duration-clip-display> ;
 
+! Audio-only
+: <audio-clip-display> ( path -- clip-display )
+    <clip> dup clip-audio-duration <duration-clip-display> ;
 
-: connect-clip-displays ( clip-display1 clip-display2 -- )
-    ?prev<< ;
-    ! prev>> ?set-model ;
+: connect-clip-displays ( clip-display1 clip-display2 -- ) ?prev<< ;
 
 :: <pause-display> ( initial-duration -- obj )
     no-predecessor-clip get <model-model>
@@ -210,3 +211,19 @@ M: model-model model-changed
 : clip-displays>lof ( seq filename --  )
     [ [ has-audio? ] map sift ] dip
     utf8 [ [ "file " write normalize-path ... ] each ] with-file-writer ;
+
+! Merging: if one of contains no strokes, don't adjust duration
+:: merge-duration ( cd1 cd2 -- seconds )
+    cd1 cd2 2dup [ clip>> elements>> empty? ] bi@ :> ( e1 e2 )
+    [ draw-duration!>> ] bi@ :> ( d1 d2 )
+    { { [ e1 e2 and ] [ d1 d2 max ] }
+      { [ e1 ] [ d2 ] }
+      { [ e2 ] [ d1 ] }
+      [ d1 d2 + ]
+    } cond ;
+
+: <merged-clip-display> ( d1 d2 -- d )
+    [ [ clip>> ] bi@ clip-merge ]
+    [ merge-duration ] 2bi
+    ! [ [ draw-duration!>> ] bi@ + ] 2bi
+    <duration-clip-display> ;
