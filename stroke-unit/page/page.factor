@@ -1,5 +1,5 @@
 USING: accessors animators arrays audio.engine audio.recorder calendar
-combinators combinators.short-circuit continuations formatting grouping
+combinators combinators.short-circuit continuations formatting grouping io
 io.backend io.directories io.encodings.binary io.files io.files.temp io.launcher
 io.pathnames kernel math math.combinators math.rectangles models models.arrow
 models.model-slots models.selection namespaces prettyprint sequences serialize
@@ -339,10 +339,14 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
 : save-clips ( clip-displays filename --  )
     binary [ bake-clips serialize ] with-file-writer ;
 
-! TODO inline?
+: editor-generate-lof ( gadget -- )
+    dup output-dir>>
+    [ over filename>> compute-model file-name ".lof" append append-path
+      [ clip-displays>> ] dip clip-displays>lof
+    ] [ drop ] if* ;
+
 : editor-save-to ( gadget filename -- )
     [ make-save-record ] dip binary [ serialize ] with-file-writer ;
-    ! [ clip-displays>> compute-model ] dip save-clips ;
 
 : editor-save ( gadget -- )
     dup ensure-filename editor-save-to ;
@@ -544,6 +548,10 @@ ERROR: no-output-dir ;
 : editor-change-draw-scale ( gadget inc/dec -- )
     swap page-parameters>> draw-scale>>
     [ compute-model + ] [ set-model ] bi ;
+
+: clip-audio-paths. ( gadget -- )
+    clip-displays>> [ has-audio? ] map sift
+    [ print ] each ;
 
 ! * Open clip-maker to select strokes which to split off into a new clip
 

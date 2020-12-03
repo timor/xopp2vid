@@ -1,7 +1,8 @@
-USING: accessors arrays io.directories kernel math math.combinators
-math.functions math.order models models.arrow models.arrow.smart
-models.model-slots models.product namespaces sequences sequences.generalizations
-sets stroke-unit.clip-renderer stroke-unit.clips ;
+USING: accessors arrays io io.backend io.directories io.encodings.utf8 io.files
+kernel math math.combinators math.functions math.order models models.arrow
+models.arrow.smart models.model-slots models.product namespaces prettyprint
+sequences sequences.generalizations sets stroke-unit.clip-renderer
+stroke-unit.clips ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
@@ -204,3 +205,8 @@ M: model-model model-changed
         [ drop clip>> clip-audio-duration ]
         2tri - ]
     [ 2drop f ] if ;
+
+! Write lof files for audacity, without offset
+: clip-displays>lof ( seq filename --  )
+    [ [ has-audio? ] map sift ] dip
+    utf8 [ [ "file " write normalize-path ... ] each ] with-file-writer ;
