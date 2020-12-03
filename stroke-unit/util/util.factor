@@ -192,3 +192,9 @@ ERROR: file-exists path ;
 : 2merge-all ( seq1 seq2 -- seq )
     [ 2merge ]
     [ longer-tail ] 2bi append ;
+
+: restart-gadget-audio ( -- )
+    gadget-audio-engine
+    [ get [ audio.engine:stop-audio ] [ dispose ] bi ]
+    [ f swap set-global ] bi
+    initialize-audio-gadgets ;
