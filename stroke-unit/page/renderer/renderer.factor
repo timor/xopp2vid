@@ -20,6 +20,7 @@ IN: stroke-unit.page.renderer
     sprintf try-process ;
 
 : add-audio ( videofile audiofile outpath -- )
+    [ normalize-path ] dip
     "ffmpeg -y -i %s -i %s -c:v libx264 -c:a aac -crf 20 -preset:v veryslow %s" sprintf try-process ;
 
 TUPLE: render-pause pause ;
