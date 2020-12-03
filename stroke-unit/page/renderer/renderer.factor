@@ -1,6 +1,6 @@
-USING: accessors arrays cairo-gadgets cairo.ffi formatting io.directories
-io.launcher io.pathnames kernel make math math.functions math.parser namespaces
-sequences stroke-unit.clip-renderer stroke-unit.clips
+USING: accessors arrays cairo-gadgets cairo.ffi formatting io.backend
+io.directories io.launcher io.pathnames kernel make math math.functions
+math.parser namespaces sequences stroke-unit.clip-renderer stroke-unit.clips
 stroke-unit.elements.images stroke-unit.models.clip-display stroke-unit.strokes
 stroke-unit.util threads xml.data ;
 
