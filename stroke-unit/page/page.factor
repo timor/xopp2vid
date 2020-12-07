@@ -1,29 +1,20 @@
 USING: accessors animators arrays audio.engine audio.recorder calendar
-combinators combinators.short-circuit continuations formatting grouping io
-io.backend io.directories io.encodings.binary io.files io.files.temp io.launcher
+combinators combinators.short-circuit continuations formatting io io.backend
+io.directories io.encodings.binary io.files io.files.temp io.launcher
 io.pathnames kernel math math.combinators math.rectangles models models.arrow
 models.model-slots models.selection namespaces prettyprint sequences serialize
 sets stroke-unit.clip-renderer stroke-unit.clips stroke-unit.clips.clip-maker
 stroke-unit.elements stroke-unit.models.clip-display
 stroke-unit.models.page-parameters stroke-unit.page.canvas
-stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.util timers
-ui.gadgets ui.gadgets.colon-wrapper ui.gadgets.glass ui.gadgets.labels
-ui.gadgets.model-children ui.gadgets.packs ui.gadgets.scrollers
-ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks ui.gestures
-ui.tools.inspector vectors xopp.file ;
+stroke-unit.page.clip-timeline stroke-unit.page.renderer stroke-unit.strokes
+stroke-unit.util timers ui.gadgets ui.gadgets.colon-wrapper ui.gadgets.glass
+ui.gadgets.labels ui.gadgets.model-children ui.gadgets.packs
+ui.gadgets.scrollers ui.gadgets.sliders ui.gadgets.timeline ui.gadgets.tracks
+ui.gestures ui.tools.inspector xopp.file ;
 
 IN: stroke-unit.page
 FROM: namespaces => set ;
 
-
-! Initial, assume default stroke speed, return sequence of clip-display models
-: connect-all-displays ( seq -- seq )
-    dup 2 <clumps> [ first2 connect-clip-displays ] each ;
-
-: initialize-clips ( clips -- seq )
-    stroke-speed get
-    [ <clip-display> ] curry map >vector
-    connect-all-displays ;
 
 : <page-slider> ( range-model -- gadget )
     horizontal <slider> fps get recip >>line ;
@@ -37,16 +28,16 @@ TUPLE: page-editor < track
 MODEL-SLOT: page-editor [ clip-displays-m>> ] clip-displays
 INSTANCE: page-editor has-selection
 
-: generate-project-filename ( -- str )
-    "stroke-unit-" temp-file now timestamp>filename-component append ;
+: generate-page-filename ( -- str )
+    "stroke-unit-page" temp-file now timestamp>filename-component append ;
 
 :: <page-editor-from-clips> ( clips -- gadget )
-    clips initialize-clips :> clip-displays
+    clips :> cds
     vertical page-editor new-track
-    clip-displays <range-page-parameters> :> ( range-model page-parameters )
+    cds value>> <range-page-parameters> :> ( range-model page-parameters )
     fps get recip [ seconds ] keep range-model <range-animator> >>animator
     V{ } clone >>kill-stack
-    clip-displays <model> :> cds
+    ! clip-displays <model> :> cds
     cds >>clip-displays-m
     cds <selection> :> selection-model
     selection-model >>selection
@@ -54,7 +45,7 @@ INSTANCE: page-editor has-selection
     page-parameters cds <page-canvas> 0.85 track-add
     page-parameters cds <page-timeline> <scroller> 0.15 track-add
     range-model <page-slider> f track-add
-    generate-project-filename <model> dup :> filename-model
+    generate-page-filename <model> dup :> filename-model
     >>filename
     <shelf> { 10 10 } >>gap
     filename-model <label-control> add-gadget
@@ -64,7 +55,7 @@ INSTANCE: page-editor has-selection
     page-parameters >>page-parameters ;
 
 : <page-editor> ( page -- gadget )
-    dup page-clips <page-editor-from-clips> swap >>page
+    dup page-clips initialize-clips <model> <page-editor-from-clips> swap >>page
     \ page-editor swap <colon-wrapper>
     ;
 
@@ -301,7 +292,10 @@ ERROR: no-focused-clip ;
     fps get /
     swap page-parameters>> current-time>> [ compute-model + ] [ set-model ] bi ;
 
-: editor-insert-pause ( gadget duration -- )
+: editor-insert-pause-after ( gadget duration -- )
+    <pause-display> over kill-stack>> push editor-yank-after ;
+
+: editor-insert-pause-before ( gadget duration -- )
     <pause-display> over kill-stack>> push editor-yank-before ;
 
 M: page-editor ungraft*
@@ -317,7 +311,7 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
 : bake-clips ( seq -- seq )
     [ [ clip>> ] [ draw-duration>> ] bi [ f >>audio ] dip 2array ] map ;
 
-: make-save-record ( gadget -- obj )
+: make-page-save-record ( gadget -- obj )
     {
         [ xopp-file>> ]
         [ page>> ]
@@ -341,14 +335,14 @@ TUPLE: save-record xopp-file page clip/durations output-path ;
     ] [ drop ] if* ;
 
 : editor-save-to ( gadget filename -- )
-    [ make-save-record ] dip binary [ serialize ] with-file-writer ;
+    [ make-page-save-record ] dip binary [ serialize ] with-file-writer ;
 
 : editor-save ( gadget -- )
     dup ensure-filename editor-save-to ;
 
 : editor-import-xopp-page ( gadget xopp-file-path page-no -- )
     ! TODO: maybe save existing?
-    [ dup generate-project-filename set-filename f >>output-dir ] 2dip
+    [ dup generate-page-filename set-filename f >>output-dir ] 2dip
     over file>xopp pages nth dup page-clips initialize-clips
     [ >>xopp-file ] [ >>page ] [ swap clip-displays<< ] tri*
     ;
@@ -372,7 +366,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     [ canvas-gadget clear-gadget-cache ] bi
     ;
 
-: load-save-record ( gadget -- )
+: load-page-save-record ( gadget -- )
     dup clear-caches
     dup ensure-filename binary [ deserialize ] with-file-reader
     { [ xopp-file>> >>xopp-file ]
@@ -382,7 +376,7 @@ quicksave-path [ "~/tmp/stroke-unit-quicksave" ] initialize
     } cleave ;
 
 : editor-load ( gadget path -- )
-    [ set-filename ] keepd load-save-record ;
+    [ set-filename ] keepd load-page-save-record ;
     ! load-clip-displays swap [ clip-displays>> set-model ] [ relayout ] bi ;
 
 : editor-quickload ( gadget -- )
@@ -568,7 +562,7 @@ ERROR: no-output-dir ;
 : visible-strokes ( gadget -- seq )
     [ page-parameters>> current-time>> compute-model ]
     [ clip-displays>> ] bi
-    [ [ nip clip>> ] [ global-time>clip-position ] 2bi clip-elements-until-position ] with gather ;
+    [ [ nip clip>> ] [ global-time>clip-position ] 2bi clip-elements-until-position ] with gather [ stroke? ] filter ;
 
 :: page-extract-callback ( gadget -- obj )
     [| strokes | gadget clip-displays>> strokes extract-strokes gadget push-kill ] ;
@@ -591,7 +585,7 @@ ERROR: no-output-dir ;
 ! Interleaves current clip-displays with audio-only clips
 : editor-import-audio-dir ( gadget path --  )
     qualified-directory-files [ <audio-clip-display> ] map
-    '[ _ 2merge-all connect-all-displays ] change-clip-displays drop ;
+    '[ _ swap 2merge-all connect-all-displays ] change-clip-displays drop ;
 
 ! * Editor Keybindings
 
@@ -618,7 +612,8 @@ page-editor H{
     { T{ key-down f f "]" } [ 1 editor-wind-by ] }
     { T{ key-down f f "{" } [ -10 editor-wind-by ] }
     { T{ key-down f f "}" } [ 10 editor-wind-by ] }
-    { T{ key-down f f "n" } [ 2 editor-insert-pause ] }
+    { T{ key-down f f "n" } [ 2 editor-insert-pause-after ] }
+    { T{ key-down f f "N" } [ 2 editor-insert-pause-before ] }
     { T{ key-down f { C+ } "s" } [ editor-quicksave ] }
     { T{ key-down f { C+ } "o" } [ editor-quickload ] }
     { T{ key-down f { C+ } "w" } [ editor-save ] }
@@ -631,8 +626,9 @@ page-editor H{
     { T{ key-down f f "1" } [ 0.66 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "2" } [ 0.75 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "3" } [ 1 editor-set-stroke-speed-factor ] }
-    { T{ key-down f f "4" } [ 2 editor-set-stroke-speed-factor ] }
-    { T{ key-down f f "5" } [ 4 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "4" } [ 1.25 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "5" } [ 2 editor-set-stroke-speed-factor ] }
+    { T{ key-down f f "6" } [ 3 editor-set-stroke-speed-factor ] }
     { T{ key-down f f "<" } [ editor-move-focused-start-to-current-time ] }
     { T{ key-down f f ">" } [ editor-stretch-focused-end-to-current-time ] }
     { T{ key-down f { C+ } "=" } [ 0.1 editor-change-draw-scale ] }

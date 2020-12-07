@@ -1,19 +1,13 @@
-USING: accessors arrays cairo-gadgets cairo.ffi formatting io.backend
-io.directories io.launcher io.pathnames kernel make math math.functions
-math.parser namespaces sequences stroke-unit.clip-renderer stroke-unit.clips
+USING: accessors cairo-gadgets cairo.ffi formatting io.backend io.directories
+io.launcher io.pathnames kernel make math math.functions namespaces sequences
+stroke-unit.clip-renderer stroke-unit.clips stroke-unit.elements
 stroke-unit.elements.images stroke-unit.models.clip-display stroke-unit.strokes
-stroke-unit.util threads xml.data ;
+stroke-unit.util threads ;
 
 IN: stroke-unit.page.renderer
 
 
 ! * Render clips to page frames, no translation
-
-: even-integer ( number -- int )
-    ceiling >integer dup even? [ 1 + ] unless ;
-
-: page-dim ( page -- dim )
-    [ "width" attr string>number even-integer ] [ "height" attr string>number even-integer 2array ] bi ;
 
 : render-frame-video ( fps in-pattern out-file -- )
     "ffmpeg -y -r %d -f image2 -i %s -vcodec mpeg2video -qscale 1 -qmin 1 -intra -an %s"
@@ -48,24 +42,59 @@ C: <render-entry> render-entry
                     ] if
      ] each accum ;
 
-! cr is bound during render-element
-GENERIC: render-element ( surface element -- )
-M: stroke render-element
+! GENERIC: render-to-backend ( render-entry backend -- res )
+
+! ! cr is bound during render-cairo-element
+GENERIC: render-cairo-element ( surface element -- )
+M: stroke render-cairo-element
     [ nip add-inter-stroke-pause ]
     [ swap render-stroke-frames ]
     [ nip last-stroke set ] 2tri ;
 
-M: render-pause render-element
+M: render-pause render-cairo-element
     pause>> fps get * ceiling >integer
     swap [ add-frame ] curry times
     last-stroke off ;
 
-M: speed-change render-element
+M: speed-change render-cairo-element
     nip speed>> stroke-speed set ;
 
-M: image-elt render-element
+M: image-elt render-cairo-element
     nip render-cairo* ;
 
+! ! TUPLE: dummy-backend stats ;
+! ! : <dummy-backend> ( -- obj ) V{ } clone dummy-backend boa ;
+
+! ! GENERIC: render-dummy-element ( dummy-backend element -- )
+! ! M: stroke render-dummy-element
+! !     [ stats>> ] dip
+! !     elements>>
+! !     [ [ image-elt ] ]
+
+! TUPLE: cairo-file-backend dim scale output-path clip-name index surface last-stroke ;
+! C: cairo-file-backend <cairo-file-backend>
+! GENERIC: fill-bg ( backend -- )
+! GENERIC: finish-frame ( backend -- )
+
+! : frame-path ( backend -- path )
+!     [ output-path>> ] [ clip-name>> ] [ index>> ] tri
+!     "%s-%05d.png" sprintf append-path ;
+
+! M: cairo-file-backend fill-bg
+!     [ dim>> ] [ surface>> ] bi
+!     [ draw-white-bg ] with-cairo-from-surface ;
+
+! M: cairo-file-backend finish-frame
+!     [ frame-path>> ] [ surface>> ] bi
+!     [ write-frame ] with-cairo-from-surface ;
+
+! M:: cairo-file-backend render-to-backend ( entry backend -- res )
+!     backend dim>> dup :> dim
+!     [| surface |
+!      cr backend scale>> dup cairo_scale
+!     ] with-image-surface
+
+! TODO: have separate cairo matrix for strokes, so that images can be scaled correctly...
 :: render-page-clip-frames ( page dim clip-displays path -- frames )
     dim page page-dim fit-to-scale :> scale
     [ dim [| surface |
@@ -73,14 +102,15 @@ M: image-elt render-element
            dim draw-white-bg
            clip-displays make-render-list
            [| entry i |
-            path i "clip-%02d" sprintf append-path dup :> clip-dir
+            path i "clip-%02d" sprintf append-path normalize-path dup :> clip-dir
             frame-output-path set
             clip-dir make-directories
             0 path-suffix set
             0 segment-timer set
             last-stroke off
+            surface add-frame
             entry elements>>
-            [ surface swap render-element yield ] each
+            [ surface swap render-cairo-element yield ] each
             fps get clip-dir "frame-%05d.png" append-path
             clip-dir ".mpg" append dup :> video-file render-frame-video
             entry audio>> dup +no-audio+?

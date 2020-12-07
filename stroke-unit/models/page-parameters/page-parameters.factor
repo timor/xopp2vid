@@ -2,12 +2,12 @@ USING: accessors calendar kernel math models models.range sequences ;
 
 IN: stroke-unit.models.page-parameters
 
-
-! SYMBOL: focused-clip-index
+! * Model holding page display parameters
 
 SLOT: draw-duration
 SLOT: start-time
 ! All slots models
+
 TUPLE: page-parameters current-time draw-scale timescale ;
 : <page-parameters> ( -- obj )
     0 <model> 1 <model> 10 <model> page-parameters boa ;

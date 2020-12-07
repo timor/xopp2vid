@@ -1,7 +1,7 @@
-USING: accessors audio.loader combinators.short-circuit grouping io.files
-io.pathnames kernel math math.order math.rectangles namespaces sequences sorting
-stroke-unit.clip-renderer stroke-unit.elements stroke-unit.strokes
-stroke-unit.util xml.syntax ;
+USING: accessors audio.loader combinators combinators.short-circuit grouping
+io.files io.pathnames kernel math math.order math.rectangles namespaces
+sequences sorting stroke-unit.clip-renderer stroke-unit.elements
+stroke-unit.strokes stroke-unit.util xml.syntax ;
 
 IN: stroke-unit.clips
 SINGLETON: +no-audio+
@@ -99,10 +99,14 @@ TAG: image change-current-clip drop ;
 ! Create new clips with subsets of elements before and after position
 ! audio removed for the second one
 : clip-elements-until-position ( clip position -- elements )
-    dup 1.0 >=
-    [ drop elements>> ]
-    [ dupd clip-find-offset-stroke
-      swap elements>> [ index ] keep swap head-slice ] if ;
+    { { [ dup 1.0 >= ] [ drop elements>> ] }
+      { [ dup 0 <= ] [ 2drop f ] }
+      [ dupd clip-find-offset-stroke
+        swap elements>> [ index ] keep swap head-slice ]
+    } cond ;
+    ! dup 1.0 >=
+    ! [ drop elements>> ]
+    !  if ;
 
 : clip-split-at ( clip position -- clip-before clip-after )
     [ clone dup ] dip clip-find-offset-stroke

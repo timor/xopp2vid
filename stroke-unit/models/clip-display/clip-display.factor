@@ -1,8 +1,8 @@
-USING: accessors arrays combinators io io.backend io.directories
+USING: accessors arrays combinators grouping io io.backend io.directories
 io.encodings.utf8 io.files kernel math math.combinators math.functions
 math.order models models.arrow models.arrow.smart models.model-slots
 models.product namespaces prettyprint sequences sequences.generalizations sets
-stroke-unit.clip-renderer stroke-unit.clips ;
+stroke-unit.clip-renderer stroke-unit.clips vectors ;
 
 IN: stroke-unit.models.clip-display
 FROM: models.product => product ;
@@ -95,7 +95,7 @@ M: model-model model-changed
     draw-duration-model new-clip-display ;
 
 : clone-clip-display ( clip-display -- clip-display' )
-    [ clip>> ] [ draw-duration>> ] bi
+    [ clip>> clone ] [ draw-duration>> ] bi
     <duration-clip-display> ;
 
 ! Audio-only
@@ -227,3 +227,12 @@ M: model-model model-changed
     [ merge-duration ] 2bi
     ! [ [ draw-duration!>> ] bi@ + ] 2bi
     <duration-clip-display> ;
+
+! Initial, assume default stroke speed, return sequence of clip-display models
+: connect-all-displays ( seq -- seq )
+    dup 2 <clumps> [ first2 connect-clip-displays ] each ;
+
+: initialize-clips ( clips -- seq )
+    stroke-speed get
+    [ <clip-display> ] curry map >vector
+    connect-all-displays ;

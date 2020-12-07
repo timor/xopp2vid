@@ -2,9 +2,10 @@ USING: accessors alien alien.data arrays audio.engine audio.gadget.private
 audio.vorbis cairo cairo-gadgets cairo.ffi calendar calendar.format
 classes.struct colors columns combinators combinators.short-circuit
 continuations destructors endian grouping images images.memory.private
-io.backend io.directories io.files io.files.info io.pathnames io.streams.string
-kernel math math.functions math.order math.rectangles math.vectors namespaces
-sequences sequences.mapped sequences.merged strings threads xml xml.data
+io.backend io.directories io.encodings.binary io.files io.files.info
+io.pathnames io.streams.string kernel math math.functions math.order
+math.rectangles math.vectors namespaces sequences sequences.mapped
+sequences.merged serialize strings threads ui ui.gadgets xml xml.data
 xml.traversal ;
 
 IN: stroke-unit.util
@@ -155,6 +156,13 @@ CONSTANT: center-source T{ audio-source f {  0.0 0.0 0.0 } 1.0 { 0.0 0.0 0.0 } f
     [ [ qualified-directory-files [ rm-r ] each ] [ delete-directory ] bi ]
     [ delete-file ] if ;
 
+ERROR: not-a-directory path ;
+
+: ensure-directory ( path -- path )
+    normalize-path dup exists?
+    [ dup file-info directory? [ not-a-directory ] unless ]
+    [ [ make-directories ] keep ] if ;
+
 ERROR: not-an-empty-directory path ;
 : ensure-empty-path ( path -- path )
     normalize-path dup dup exists?
@@ -198,3 +206,19 @@ ERROR: file-exists path ;
     [ get [ audio.engine:stop-audio ] [ dispose ] bi ]
     [ f swap set-global ] bi
     initialize-audio-gadgets ;
+
+: serialize-bin-file ( obj filename -- )
+    binary [ serialize ] with-file-writer ;
+
+: deserialize-bin-file ( filename -- obj )
+    binary [ deserialize ] with-file-reader ;
+
+: even-integer ( number -- int )
+    ceiling >integer dup even? [ 1 + ] unless ;
+
+! HACK
+: show-editor ( gadget -- gadget )
+    dup "foo" open-window
+    gadget-child ;
+
+! TODO Generic support for baking/unbaking if needed again

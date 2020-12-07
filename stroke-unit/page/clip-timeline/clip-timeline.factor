@@ -1,7 +1,7 @@
 USING: accessors arrays audio audio.player-gadget calendar colors.constants
 combinators continuations formatting images images.viewer images.viewer.private
-kernel math math.order math.rectangles models models.arrow models.arrow.smart
-models.async models.selection opengl.textures sequences
+io.pathnames kernel math math.order math.rectangles models models.arrow
+models.arrow.smart models.async models.selection opengl.textures sequences
 stroke-unit.clip-renderer stroke-unit.clips stroke-unit.util timers ui.gadgets
 ui.gadgets.labels ui.gadgets.model-children ui.gadgets.scrollers
 ui.gadgets.timeline ui.gadgets.wrappers.rect-wrappers ui.gestures ui.pens.solid
@@ -80,14 +80,32 @@ MEMO: <empty-image> ( -- image )
 
 ! ** Clip preview gadgets in the timeline
 
+: limit-string ( str n -- str )
+    2dup swap length <
+    [ 1 - tail-slice* "…" prepend ] [ drop ] if ;
+
+: clip-audio-label ( clip -- str )
+    dup audio-path>> dup +no-audio+?
+    [ 2drop "" ]
+    [ [ clip-audio-duration ] [ file-stem 8 limit-string ] bi* "%.1fs %s" sprintf ] if ;
+
+: <audio-label--> ( clip-display -- str-model )
+    clip-model>> [ clip-audio-label ] <arrow> ;
+
 : <clip-parameter-string--> ( clip-display -- str )
     {
         [ start-time-model>> ]
         [ draw-duration-model>> ]
         [ stroke-speed-model>> ]
-        [ clip-model>> ]
+        [ <audio-label--> ]
     } cleave
-    [ [ ] 2dip dup audio-path>> +no-audio+? [ drop "" ] [ clip-audio-duration "%.1fs" sprintf ] if "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n%-30s" sprintf ] <?smart-arrow> ;
+    [ [ ] 2dip
+
+      ! dup audio-path>> +no-audio+?
+      ! [ drop "" ] [ clip-audio-duration "%.1fs" sprintf ] if
+      ! "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n%-30s"
+      "%.1fs\n+%.1fs\n%.1fpt/s\n\n\n%s"
+      sprintf ] <?smart-arrow> ;
 
 GENERIC: <clip-preview-image> ( model clip -- gadget )
 

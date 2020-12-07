@@ -1,6 +1,7 @@
 ! Copyright (C) 2020 martinb.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: math.rectangles sequences stroke-unit.util xml.traversal ;
+USING: arrays kernel math.parser math.rectangles sequences stroke-unit.util
+xml.data xml.traversal ;
 IN: stroke-unit.elements
 
 : strokes ( xml -- seq ) "stroke" tags-named ;
@@ -18,3 +19,6 @@ GENERIC: element-rect ( xml -- rect )
     [ [ element-rect ] [ rect-union ] map-reduce ] if-empty
     ! TODO: Check for errors because loc can become negative after padding
     1 pad-rect ;
+
+: page-dim ( page -- dim )
+    [ "width" attr string>number even-integer ] [ "height" attr string>number even-integer 2array ] bi ;

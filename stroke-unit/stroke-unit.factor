@@ -13,13 +13,13 @@ TUPLE: layer clips ;
 : xopp-test-file ( -- x )
     "~/xournalpp/uebungen/2.1.xopp" file>xopp ;
 
-: edit-page ( page -- gadget )
+: edit-single-page ( page -- gadget )
     <page-editor>
     gadget-child dup "foo" open-window ;
 
 : xopp-test ( --  editor )
     xopp-test-file
-    pages first edit-page ;
+    pages first edit-single-page ;
 
 : open-page ( path -- gadget )
     f <page-editor> swap [ editor-load ] keepd [ "foo" open-window ] keep gadget-child ;
