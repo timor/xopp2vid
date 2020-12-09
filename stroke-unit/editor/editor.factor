@@ -14,9 +14,9 @@ TUPLE: project-editor < book project ;
     [ clips>> <page-editor-from-clips> ]
     [ page>> >>page ] bi \ page-editor swap <colon-wrapper> ;
 
-: setup-project-paths ( gadget project -- gadget )
-    project-file-path "out" append-path >>output-dir ;
+: setup-project-paths ( gadget project i -- gadget )
+    over pages>> nth project-page-output-path >>output-dir ;
 
 : edit-project-page ( project i -- gadget )
-    [ <project-page-editor> show-editor ] keepd
-    setup-project-paths ;
+    [ <project-page-editor> show-editor ]
+    [ setup-project-paths ] 2bi ;

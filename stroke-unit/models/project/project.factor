@@ -1,12 +1,12 @@
-USING: accessors calendar io.files.temp io.pathnames kernel math.vectors models
-sequences stroke-unit.clips stroke-unit.elements stroke-unit.models.clip-display
-stroke-unit.page stroke-unit.util xopp.file ;
+USING: accessors calendar formatting io.files.temp io.pathnames kernel
+math.vectors models sequences stroke-unit.clips stroke-unit.elements
+stroke-unit.models.clip-display stroke-unit.page stroke-unit.util xopp.file ;
 
 IN: stroke-unit.models.project
 
 
 ! clips is a clip-display model when unbaked
-TUPLE: project-page page clips ;
+TUPLE: project-page page clips name ;
 
 : bake-page ( project-page -- project-page )
     [ compute-model bake-clips ] change-clips ;
@@ -42,7 +42,14 @@ TUPLE: project project-path name render-dim pages ;
     "stroke-unit-" temp-file now timestamp>filename-component append ;
 
 : import-pages ( project pages -- project )
-    [ dup page-clips initialize-clips <model> project-page boa ] map >>pages ;
+    [| i | dup page-clips initialize-clips <model> i "p%d" sprintf project-page boa ] map-index >>pages ;
+
+: assign-default-page-names ( project -- )
+    pages>> [ "p%02d" sprintf swap name<< ] each-index ;
+
+! Meh, interface sub-optimality :/
+: project-page-output-path ( project page -- path )
+    [ project-path>> ] [ name>> ] bi* append-path ;
 
 : xopp-file>project ( xopp-file-path -- project )
     generate-project-filename swap
