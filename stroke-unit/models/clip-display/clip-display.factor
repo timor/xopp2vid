@@ -111,6 +111,9 @@ M: model-model model-changed
 : pause-display? ( clip-display -- ? )
     clip!>> empty-clip? ;
 
+: no-draw-display? ( clip-display -- ? )
+    clip!>> elements>> empty? ;
+
 : assign-clip-audio ( clip-display path -- )
     swap [ swap >>audio-path f >>audio ] change-clip drop ;
 

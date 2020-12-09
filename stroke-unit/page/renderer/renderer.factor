@@ -21,6 +21,7 @@ TUPLE: render-pause pause ;
 C: <render-pause> render-pause
 TUPLE: speed-change speed ;
 C: <speed-change> speed-change
+SINGLETON: fresh-clip
 
 TUPLE: render-entry elements audio ;
 C: <render-entry> render-entry
@@ -35,7 +36,8 @@ C: <render-entry> render-entry
                     accum empty?
                     has-audio? last-audio this-audio = not and
                     or [ V{ } clone this-audio <render-entry> accum push ] when
-                    display pause-display?
+                    fresh-clip accum last elements>> push
+                    display no-draw-display?
                     [ duration <render-pause> accum last elements>> push ]
                     [ speed <speed-change> accum last elements>> push
                       clip elements>> accum last elements>> push-all
@@ -52,7 +54,7 @@ M: stroke render-cairo-element
     [ nip last-stroke set ] 2tri ;
 
 M: render-pause render-cairo-element
-    pause>> fps get * ceiling >integer
+    pause>> fps get * round >integer
     swap [ add-frame ] curry times
     last-stroke off ;
 
@@ -61,6 +63,9 @@ M: speed-change render-cairo-element
 
 M: image-elt render-cairo-element
     nip render-cairo* ;
+
+M: fresh-clip render-cairo-element
+    2drop last-stroke off ;
 
 ! ! TUPLE: dummy-backend stats ;
 ! ! : <dummy-backend> ( -- obj ) V{ } clone dummy-backend boa ;

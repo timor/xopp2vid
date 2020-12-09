@@ -66,7 +66,6 @@ SYMBOL: path-suffix
     stroke stroke>color/seg :> ( color segments )
     color set-stroke-params
     segments reverse clone >vector :> segments
-    surface add-frame
     [ { [ segments empty? not ] [ segment-timer get 0 < ] } 0|| ]
     [
         segment-timer get 0 >=
